@@ -1,0 +1,9 @@
+{
+  "name": "shidduch-ledger",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Shidduch Ledger — Cloudflare Worker backend (D1 + R2 + Workers AI).",
+  "dependencies": {
+    "unpdf": "^1.8.1"
+  }
+}

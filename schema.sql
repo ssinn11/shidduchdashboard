@@ -54,3 +54,13 @@ CREATE TABLE IF NOT EXISTS matches (
 
 CREATE INDEX IF NOT EXISTS idx_matches_boy ON matches(boy_id);
 CREATE INDEX IF NOT EXISTS idx_matches_girl ON matches(girl_id);
+
+-- Migration 2 — resume file storage (added when PDF upload + AI extraction
+-- were introduced). If you already ran schema.sql before this was added,
+-- run just these four ALTER TABLE lines once via the D1 Console (one at a
+-- time). If you're setting up fresh, running the whole file top-to-bottom
+-- is fine — these run after the tables above already exist.
+ALTER TABLE boys ADD COLUMN resume_file_key TEXT;
+ALTER TABLE boys ADD COLUMN resume_file_name TEXT;
+ALTER TABLE girls ADD COLUMN resume_file_key TEXT;
+ALTER TABLE girls ADD COLUMN resume_file_name TEXT;

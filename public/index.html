@@ -85,17 +85,22 @@
   .btn.small{padding:6px 11px;font-size:12.5px;border-radius:7px;}
   .btn:disabled{opacity:.5;cursor:not-allowed;}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;}
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px;}
-  .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
-  .card-name{font-family:'Fraunces',serif;font-size:18px;font-weight:600;}
-  .card-sub{font-size:12.5px;color:var(--muted);}
-  .card-row{font-size:13px;color:var(--ink-soft);display:flex;gap:6px;}
-  .card-row b{color:var(--ink);font-weight:600;}
   .chips{display:flex;flex-wrap:wrap;gap:5px;}
   .chip{background:var(--surface-2);color:var(--ink-soft);border-radius:99px;padding:3px 9px;font-size:11.5px;font-weight:600;}
   .chip.reason-strong{background:var(--primary-soft);color:var(--primary);}
   .chip.reason-mild{background:var(--gold-soft);color:var(--gold);}
   .card-actions{display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;}
+  .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);background:var(--surface);}
+  .ptable{width:100%;border-collapse:collapse;font-size:13px;min-width:960px;}
+  .ptable th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:700;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--surface-2);white-space:nowrap;}
+  .ptable td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--ink-soft);max-width:220px;}
+  .ptable tr.prow{cursor:pointer;transition:background .1s;}
+  .ptable tr.prow:hover{background:var(--surface-2);}
+  .ptable tr.prow:last-child td{border-bottom:none;}
+  .ptable td.name-cell{font-family:'Fraunces',serif;font-weight:600;color:var(--ink);white-space:nowrap;max-width:none;}
+  .ptable td.actions-cell{white-space:nowrap;}
+  .ptable .cell-empty{color:var(--muted);}
+  .ptable .ellip{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;}
   .pill{display:inline-block;padding:3px 10px;border-radius:99px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;}
   .pill.st-available{background:var(--st-available-bg);color:var(--st-available);}
   .pill.st-dating{background:var(--st-dating-bg);color:var(--st-dating);}
@@ -184,7 +189,15 @@
       <div class="spacer"></div>
       <button class="btn" onclick="openPersonModal('boys')">+ Add a Boy</button>
     </div>
-    <div class="grid" id="listBoys"></div>
+    <div class="table-wrap">
+      <table class="ptable">
+        <thead><tr>
+          <th>Name</th><th>Age</th><th>Status</th><th>Location</th><th>Wants to Live</th>
+          <th>Learning Plan</th><th>Learns At</th><th>Interests</th><th>Mother's Phone</th><th>Resume</th><th></th>
+        </tr></thead>
+        <tbody id="listBoys"></tbody>
+      </table>
+    </div>
   </div>
 
   <div class="panel" id="panel-girls">
@@ -198,7 +211,15 @@
       <div class="spacer"></div>
       <button class="btn" onclick="openPersonModal('girls')">+ Add a Girl</button>
     </div>
-    <div class="grid" id="listGirls"></div>
+    <div class="table-wrap">
+      <table class="ptable">
+        <thead><tr>
+          <th>Name</th><th>Age</th><th>Status</th><th>Location</th><th>Wants to Live</th>
+          <th>Learning Plan</th><th>Seminary</th><th>Interests</th><th>Mother's Phone</th><th>Resume</th><th></th>
+        </tr></thead>
+        <tbody id="listGirls"></tbody>
+      </table>
+    </div>
   </div>
 
   <div class="panel" id="panel-find">
@@ -246,7 +267,16 @@
       <div class="field"><label>How Long to Learn</label><input type="text" id="p_learnPlan" placeholder="e.g. 3 years in kollel" /></div>
       <div class="field"><label>Where They Learn</label><input type="text" id="p_learnPlace" placeholder="e.g. Yeshiva / seminary name" /></div>
       <div class="field full"><label>Interests</label><input type="text" id="p_interests" placeholder="comma-separated, e.g. chesed, music, sports" /></div>
-      <div class="field full"><label>Resume (link to PDF)</label><input type="text" id="p_resumeLink" placeholder="Paste a Google Drive / Dropbox link to their resume PDF" /></div>
+      <div class="field full">
+        <label>Resume (PDF upload)</label>
+        <input type="file" id="p_resumeFile" accept="application/pdf" />
+        <div style="display:flex;gap:8px;align-items:center;margin-top:7px;flex-wrap:wrap;">
+          <button type="button" class="btn small secondary" onclick="uploadResume()">Upload &amp; Extract with AI</button>
+          <span id="p_resumeStatus" style="font-size:12.5px;color:var(--muted);"></span>
+        </div>
+        <div id="p_resumeCurrent" style="margin-top:6px;font-size:12.5px;"></div>
+      </div>
+      <div class="field full"><label>Resume (or paste a link instead)</label><input type="text" id="p_resumeLink" placeholder="Paste a Google Drive / Dropbox link to their resume PDF" /></div>
       <div class="field full"><label>Mother's Phone Number</label><input type="tel" id="p_motherPhone" placeholder="(555) 555-5555" /></div>
       <div class="field full"><label>Character References</label><textarea id="p_references" placeholder="Name — relationship — phone (a few is best)"></textarea></div>
       <div class="field full"><label>Private Notes</label><textarea id="p_notes" placeholder="Anything else worth remembering"></textarea></div>
@@ -292,7 +322,7 @@
   };
 
   var state = { boys: [], girls: [], matches: [] };
-  var editing = { person: null, list: null, match: null };
+  var editing = { person: null, list: null, match: null, resumeFileKey: null, resumeFileName: null };
   var POLL_MS = 20000;
 
   function $(id){ return document.getElementById(id); }
@@ -405,8 +435,9 @@
     return {
       name: data.name, age: data.age, status: data.status, location: data.location,
       wantLive: data.wantLive, learnPlan: data.learnPlan, learnPlace: data.learnPlace,
-      interests: data.interests, resumeLink: data.resumeLink, motherPhone: data.motherPhone,
-      references: data.references, notes: data.notes
+      interests: data.interests, resumeLink: data.resumeLink,
+      resumeFileKey: data.resumeFileKey, resumeFileName: data.resumeFileName,
+      motherPhone: data.motherPhone, references: data.references, notes: data.notes
     };
   }
   var api = {
@@ -455,28 +486,31 @@
   }
 
   // ---------- rendering ----------
-  function personCard(p, listName){
-    var chips = splitList(p.interests).slice(0,4).map(function(i){ return '<span class="chip">'+esc(i)+'</span>'; }).join("");
-    var more = splitList(p.interests).length > 4 ? '<span class="chip">+'+(splitList(p.interests).length-4)+' more</span>' : "";
+  function cell(val){ return val ? '<span class="ellip" title="'+esc(val)+'">'+esc(val)+'</span>' : '<span class="cell-empty">—</span>'; }
+
+  function personResumeCell(p){
+    var links = [];
+    if(p.resume_file_key){ links.push('<a href="/api/files/'+encodeURIComponent(p.resume_file_key)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">📄 PDF</a>'); }
+    if(p.resume_link){ links.push('<a href="'+esc(p.resume_link)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">🔗 Link</a>'); }
+    return links.length ? links.join(" &middot; ") : '<span class="cell-empty">—</span>';
+  }
+
+  function personRow(p, listName){
     var cls = STATUS_CLASS[p.status] || "st-available";
-    var resumeBtn = p.resume_link ? '<a class="btn small ghost" href="'+esc(p.resume_link)+'" target="_blank" rel="noopener">📄 Resume ↗</a>' : "";
     return '' +
-      '<div class="card">' +
-        '<div class="card-top">' +
-          '<div><div class="card-name">'+esc(p.name)+'</div>' +
-          '<div class="card-sub">'+(p.age?esc(p.age)+' &middot; ':'')+esc(p.location||"—")+'</div></div>' +
-          '<span class="pill '+cls+'">'+esc(p.status||"Available")+'</span>' +
-        '</div>' +
-        '<div class="card-row"><b>Wants to live:</b> '+esc(p.want_live||"—")+'</div>' +
-        '<div class="card-row"><b>Learning:</b> '+esc(p.learn_plan||"—")+'</div>' +
-        '<div class="card-row"><b>Learns at:</b> '+esc(p.learn_place||"—")+'</div>' +
-        '<div class="chips">'+(chips||'<span class="card-sub">No interests listed</span>')+more+'</div>' +
-        '<div class="card-actions">' +
-          '<button class="btn small secondary" onclick="openPersonModal(\''+listName+'\',\''+p.id+'\')">Edit</button>' +
-          '<button class="btn small ghost" onclick="jumpToFind(\''+listName+'\',\''+p.id+'\')">Find matches →</button>' +
-          resumeBtn +
-        '</div>' +
-      '</div>';
+      '<tr class="prow" onclick="openPersonModal(\''+listName+'\',\''+p.id+'\')">' +
+        '<td class="name-cell">'+esc(p.name)+'</td>' +
+        '<td>'+(p.age?esc(p.age):'<span class="cell-empty">—</span>')+'</td>' +
+        '<td><span class="pill '+cls+'">'+esc(p.status||"Available")+'</span></td>' +
+        '<td>'+cell(p.location)+'</td>' +
+        '<td>'+cell(p.want_live)+'</td>' +
+        '<td>'+cell(p.learn_plan)+'</td>' +
+        '<td>'+cell(p.learn_place)+'</td>' +
+        '<td>'+cell(p.interests)+'</td>' +
+        '<td>'+cell(p.mother_phone)+'</td>' +
+        '<td>'+personResumeCell(p)+'</td>' +
+        '<td class="actions-cell"><button class="btn small ghost" onclick="event.stopPropagation();jumpToFind(\''+listName+'\',\''+p.id+'\')">Find matches →</button></td>' +
+      '</tr>';
   }
 
   function statTiles(list, containerId){
@@ -505,10 +539,10 @@
     if(filter){ list = list.filter(function(p){ return p.status===filter; }); }
     var el = $("list"+cap(listName));
     if(!list.length){
-      el.innerHTML = '<div class="empty" style="grid-column:1/-1"><div class="display">No one here yet</div>Add a profile to get started, or adjust your search.</div>';
+      el.innerHTML = '<tr><td colspan="11" style="padding:40px 20px;"><div class="empty" style="border:none;padding:0;"><div class="display">No one here yet</div>Add a profile to get started, or adjust your search.</div></td></tr>';
       return;
     }
-    el.innerHTML = list.map(function(p){ return personCard(p, listName); }).join("");
+    el.innerHTML = list.map(function(p){ return personRow(p, listName); }).join("");
   }
 
   function renderFind(){
@@ -558,7 +592,7 @@
           '</div>' +
           '<div class="mr-actions">' +
             '<button class="btn small secondary" onclick="openPersonModal(\''+opp+'\',\''+s.person.id+'\')">View</button>' +
-            (s.person.resume_link ? '<a class="btn small ghost" href="'+esc(s.person.resume_link)+'" target="_blank" rel="noopener">📄 Resume ↗</a>' : "") +
+            (s.person.resume_file_key ? '<a class="btn small ghost" href="/api/files/'+encodeURIComponent(s.person.resume_file_key)+'" target="_blank" rel="noopener">📄 Resume ↗</a>' : (s.person.resume_link ? '<a class="btn small ghost" href="'+esc(s.person.resume_link)+'" target="_blank" rel="noopener">🔗 Resume ↗</a>' : "")) +
             '<button class="btn small" onclick="quickSuggest(\''+boyId+'\',\''+esc(boyName).replace(/'/g,"\\'")+'\',\''+girlId+'\',\''+esc(girlName).replace(/'/g,"\\'")+'\')">Suggest This Match</button>' +
           '</div>' +
         '</div>';
@@ -681,9 +715,76 @@
     $("p_references").value = p ? p.character_references||"" : "";
     $("p_notes").value = p ? p.notes||"" : "";
     $("p_deleteBtn").style.display = id ? "inline-flex" : "none";
-    $("p_learnPlace").placeholder = listName==="boys" ? "e.g. Yeshiva name, city" : "e.g. Seminary / job, city";
+    $("p_learnPlace").placeholder = listName==="boys" ? "e.g. Yeshiva name, city" : "e.g. Seminary name, city";
     $("p_learnPlan").placeholder = listName==="boys" ? "e.g. 3 years in kollel" : "e.g. prefers 2-3 years";
+    editing.resumeFileKey = p ? (p.resume_file_key || null) : null;
+    editing.resumeFileName = p ? (p.resume_file_name || null) : null;
+    $("p_resumeFile").value = "";
+    $("p_resumeStatus").textContent = "";
+    $("p_resumeStatus").style.color = "var(--muted)";
+    renderResumeCurrent();
+    updateLearnPlaceLabel(listName);
     $("personOverlay").classList.add("open");
+  };
+
+  function updateLearnPlaceLabel(listName){
+    var labels = document.querySelectorAll("#personOverlay .form-grid .field label");
+    labels.forEach(function(lbl){
+      if(lbl.textContent === "Where They Learn" || lbl.textContent === "Seminary"){
+        lbl.textContent = listName==="girls" ? "Seminary" : "Where They Learn";
+      }
+    });
+  }
+
+  function renderResumeCurrent(){
+    var el = $("p_resumeCurrent");
+    el.innerHTML = editing.resumeFileKey
+      ? 'Current file: <a href="/api/files/'+encodeURIComponent(editing.resumeFileKey)+'" target="_blank" rel="noopener">'+esc(editing.resumeFileName||"resume.pdf")+'</a>'
+      : "";
+  }
+
+  window.uploadResume = function(){
+    var input = $("p_resumeFile");
+    var file = input.files && input.files[0];
+    if(!file){ toast("Choose a PDF first"); return; }
+    if(file.type !== "application/pdf"){ toast("Please choose a PDF file"); return; }
+    var statusEl = $("p_resumeStatus");
+    statusEl.style.color = "var(--muted)";
+    statusEl.textContent = "Uploading & reading with AI… this can take a few seconds";
+    var fd = new FormData();
+    fd.append("file", file);
+    fd.append("table", editing.list || "boys");
+    fetch("/api/resume", { method:"POST", body: fd }).then(function(r){
+      if(!r.ok) throw new Error("upload failed");
+      return r.json();
+    }).then(function(res){
+      editing.resumeFileKey = res.key;
+      editing.resumeFileName = res.name;
+      renderResumeCurrent();
+      if(res.extracted){
+        var ex = res.extracted;
+        if(ex.name) $("p_name").value = ex.name;
+        if(ex.age) $("p_age").value = ex.age;
+        if(ex.location) $("p_location").value = ex.location;
+        if(ex.wantLive) $("p_wantLive").value = ex.wantLive;
+        if(ex.learnPlan) $("p_learnPlan").value = ex.learnPlan;
+        if(ex.learnPlace) $("p_learnPlace").value = ex.learnPlace;
+        if(ex.interests) $("p_interests").value = ex.interests;
+        if(ex.motherPhone) $("p_motherPhone").value = ex.motherPhone;
+        if(ex.references) $("p_references").value = ex.references;
+        statusEl.style.color = "var(--gold)";
+        statusEl.textContent = "Filled in from the resume — check every field below before saving.";
+      } else if(res.extractError){
+        statusEl.style.color = "var(--st-declined)";
+        statusEl.textContent = res.extractError;
+      } else {
+        statusEl.style.color = "var(--muted)";
+        statusEl.textContent = "File saved.";
+      }
+    }).catch(function(){
+      statusEl.style.color = "var(--st-declined)";
+      statusEl.textContent = "Upload failed — try again.";
+    });
   };
   window.closePersonModal = function(){ $("personOverlay").classList.remove("open"); };
   window.savePerson = function(){
@@ -699,6 +800,8 @@
       learnPlace: $("p_learnPlace").value.trim(),
       interests: $("p_interests").value.trim(),
       resumeLink: $("p_resumeLink").value.trim(),
+      resumeFileKey: editing.resumeFileKey || "",
+      resumeFileName: editing.resumeFileName || "",
       motherPhone: $("p_motherPhone").value.trim(),
       references: $("p_references").value.trim(),
       notes: $("p_notes").value.trim()
