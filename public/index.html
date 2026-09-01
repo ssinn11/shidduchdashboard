@@ -262,11 +262,22 @@
           <option>Available</option><option>Dating</option><option>On Hold</option><option>Engaged</option><option>Married</option>
         </select>
       </div>
+      <div class="field"><label>Date of Birth</label><input type="text" id="p_dob" placeholder="e.g. February 28, 2005" /></div>
+      <div class="field"><label>Height</label><input type="text" id="p_height" placeholder="e.g. 5'3&quot;" /></div>
       <div class="field"><label>Current Location</label><input type="text" id="p_location" placeholder="e.g. Lakewood, NJ" /></div>
       <div class="field"><label>Where They Want to Live</label><input type="text" id="p_wantLive" placeholder="e.g. Lakewood, Passaic" /></div>
       <div class="field"><label>How Long to Learn</label><input type="text" id="p_learnPlan" placeholder="e.g. 3 years in kollel" /></div>
       <div class="field"><label>Where They Learn</label><input type="text" id="p_learnPlace" placeholder="e.g. Yeshiva / seminary name" /></div>
       <div class="field full"><label>Interests</label><input type="text" id="p_interests" placeholder="comma-separated, e.g. chesed, music, sports" /></div>
+      <div class="field full">
+        <label>Photo</label>
+        <input type="file" id="p_photoFile" accept="image/jpeg,image/png,image/webp,image/heic" />
+        <div style="display:flex;gap:10px;align-items:center;margin-top:7px;flex-wrap:wrap;">
+          <button type="button" class="btn small secondary" onclick="uploadPhoto()">Upload Photo</button>
+          <span id="p_photoStatus" style="font-size:12.5px;color:var(--muted);"></span>
+        </div>
+        <div id="p_photoCurrent" style="margin-top:8px;"></div>
+      </div>
       <div class="field full">
         <label>Resume (PDF upload)</label>
         <input type="file" id="p_resumeFile" accept="application/pdf" />
@@ -278,7 +289,11 @@
       </div>
       <div class="field full"><label>Resume (or paste a link instead)</label><input type="text" id="p_resumeLink" placeholder="Paste a Google Drive / Dropbox link to their resume PDF" /></div>
       <div class="field full"><label>Mother's Phone Number</label><input type="tel" id="p_motherPhone" placeholder="(555) 555-5555" /></div>
-      <div class="field full"><label>Character References</label><textarea id="p_references" placeholder="Name — relationship — phone (a few is best)"></textarea></div>
+      <div class="field full"><label>Parents</label><textarea id="p_parents" placeholder="Names, occupations"></textarea></div>
+      <div class="field full"><label>Siblings</label><textarea id="p_siblings" placeholder="Names, ages, where they learn/school"></textarea></div>
+      <div class="field full"><label>Shul / Rav</label><input type="text" id="p_shul" placeholder="Shul name and rabbi, with phone if known" /></div>
+      <div class="field full"><label>Family References</label><textarea id="p_familyReferences" placeholder="Name — relationship — phone"></textarea></div>
+      <div class="field full"><label>Personal References</label><textarea id="p_references" placeholder="Name — relationship — phone (a few is best)"></textarea></div>
       <div class="field full"><label>Private Notes</label><textarea id="p_notes" placeholder="Anything else worth remembering"></textarea></div>
     </div>
     <div class="modal-actions">
@@ -322,7 +337,7 @@
   };
 
   var state = { boys: [], girls: [], matches: [] };
-  var editing = { person: null, list: null, match: null, resumeFileKey: null, resumeFileName: null };
+  var editing = { person: null, list: null, match: null, resumeFileKey: null, resumeFileName: null, photoFileKey: null, photoFileName: null };
   var POLL_MS = 20000;
 
   function $(id){ return document.getElementById(id); }
@@ -437,7 +452,10 @@
       wantLive: data.wantLive, learnPlan: data.learnPlan, learnPlace: data.learnPlace,
       interests: data.interests, resumeLink: data.resumeLink,
       resumeFileKey: data.resumeFileKey, resumeFileName: data.resumeFileName,
-      motherPhone: data.motherPhone, references: data.references, notes: data.notes
+      photoFileKey: data.photoFileKey, photoFileName: data.photoFileName,
+      motherPhone: data.motherPhone, references: data.references, notes: data.notes,
+      dateOfBirth: data.dateOfBirth, height: data.height, parents: data.parents,
+      siblings: data.siblings, shul: data.shul, familyReferences: data.familyReferences
     };
   }
   var api = {
@@ -714,15 +732,27 @@
     $("p_motherPhone").value = p ? p.mother_phone||"" : "";
     $("p_references").value = p ? p.character_references||"" : "";
     $("p_notes").value = p ? p.notes||"" : "";
+    $("p_dob").value = p ? p.date_of_birth||"" : "";
+    $("p_height").value = p ? p.height||"" : "";
+    $("p_parents").value = p ? p.parents_info||"" : "";
+    $("p_siblings").value = p ? p.siblings_info||"" : "";
+    $("p_shul").value = p ? p.shul_info||"" : "";
+    $("p_familyReferences").value = p ? p.family_references||"" : "";
     $("p_deleteBtn").style.display = id ? "inline-flex" : "none";
     $("p_learnPlace").placeholder = listName==="boys" ? "e.g. Yeshiva name, city" : "e.g. Seminary name, city";
     $("p_learnPlan").placeholder = listName==="boys" ? "e.g. 3 years in kollel" : "e.g. prefers 2-3 years";
     editing.resumeFileKey = p ? (p.resume_file_key || null) : null;
     editing.resumeFileName = p ? (p.resume_file_name || null) : null;
+    editing.photoFileKey = p ? (p.photo_file_key || null) : null;
+    editing.photoFileName = p ? (p.photo_file_name || null) : null;
     $("p_resumeFile").value = "";
     $("p_resumeStatus").textContent = "";
     $("p_resumeStatus").style.color = "var(--muted)";
+    $("p_photoFile").value = "";
+    $("p_photoStatus").textContent = "";
+    $("p_photoStatus").style.color = "var(--muted)";
     renderResumeCurrent();
+    renderPhotoCurrent();
     updateLearnPlaceLabel(listName);
     $("personOverlay").classList.add("open");
   };
@@ -742,6 +772,40 @@
       ? 'Current file: <a href="/api/files/'+encodeURIComponent(editing.resumeFileKey)+'" target="_blank" rel="noopener">'+esc(editing.resumeFileName||"resume.pdf")+'</a>'
       : "";
   }
+
+  function renderPhotoCurrent(){
+    var el = $("p_photoCurrent");
+    el.innerHTML = editing.photoFileKey
+      ? '<img src="/api/files/'+encodeURIComponent(editing.photoFileKey)+'" alt="Photo" style="max-width:120px;max-height:120px;border-radius:8px;border:1px solid var(--border);display:block;" />'
+      : "";
+  }
+
+  window.uploadPhoto = function(){
+    var input = $("p_photoFile");
+    var file = input.files && input.files[0];
+    if(!file){ toast("Choose a photo first"); return; }
+    var ALLOWED_TYPES = ["image/jpeg","image/png","image/webp","image/heic"];
+    if(ALLOWED_TYPES.indexOf(file.type) === -1){ toast("Please choose a JPG, PNG, WEBP, or HEIC image"); return; }
+    var statusEl = $("p_photoStatus");
+    statusEl.style.color = "var(--muted)";
+    statusEl.textContent = "Uploading…";
+    var fd = new FormData();
+    fd.append("file", file);
+    fd.append("table", editing.list || "boys");
+    fetch("/api/photo", { method:"POST", body: fd }).then(function(r){
+      if(!r.ok) throw new Error("upload failed");
+      return r.json();
+    }).then(function(res){
+      editing.photoFileKey = res.key;
+      editing.photoFileName = res.name;
+      renderPhotoCurrent();
+      statusEl.style.color = "var(--gold)";
+      statusEl.textContent = "Photo saved.";
+    }).catch(function(){
+      statusEl.style.color = "var(--st-declined)";
+      statusEl.textContent = "Upload failed — try again.";
+    });
+  };
 
   window.uploadResume = function(){
     var input = $("p_resumeFile");
@@ -772,6 +836,16 @@
         if(ex.interests) $("p_interests").value = ex.interests;
         if(ex.motherPhone) $("p_motherPhone").value = ex.motherPhone;
         if(ex.references) $("p_references").value = ex.references;
+        if(ex.dateOfBirth) $("p_dob").value = ex.dateOfBirth;
+        if(ex.height) $("p_height").value = ex.height;
+        if(ex.parents) $("p_parents").value = ex.parents;
+        if(ex.siblings) $("p_siblings").value = ex.siblings;
+        if(ex.shul) $("p_shul").value = ex.shul;
+        if(ex.familyReferences) $("p_familyReferences").value = ex.familyReferences;
+        if(ex.notes){
+          var existingNotes = $("p_notes").value.trim();
+          $("p_notes").value = existingNotes ? existingNotes + "\n\n" + ex.notes : ex.notes;
+        }
         statusEl.style.color = "var(--gold)";
         statusEl.textContent = "Filled in from the resume — check every field below before saving.";
       } else if(res.extractError){
@@ -802,9 +876,17 @@
       resumeLink: $("p_resumeLink").value.trim(),
       resumeFileKey: editing.resumeFileKey || "",
       resumeFileName: editing.resumeFileName || "",
+      photoFileKey: editing.photoFileKey || "",
+      photoFileName: editing.photoFileName || "",
       motherPhone: $("p_motherPhone").value.trim(),
       references: $("p_references").value.trim(),
-      notes: $("p_notes").value.trim()
+      notes: $("p_notes").value.trim(),
+      dateOfBirth: $("p_dob").value.trim(),
+      height: $("p_height").value.trim(),
+      parents: $("p_parents").value.trim(),
+      siblings: $("p_siblings").value.trim(),
+      shul: $("p_shul").value.trim(),
+      familyReferences: $("p_familyReferences").value.trim()
     };
     var op = editing.person ? api.update(editing.list, editing.person, data) : api.add(editing.list, data);
     op.then(function(){ toast(editing.person ? "Saved" : "Added"); closePersonModal(); refreshAll(); })

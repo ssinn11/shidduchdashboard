@@ -64,3 +64,25 @@ ALTER TABLE boys ADD COLUMN resume_file_key TEXT;
 ALTER TABLE boys ADD COLUMN resume_file_name TEXT;
 ALTER TABLE girls ADD COLUMN resume_file_key TEXT;
 ALTER TABLE girls ADD COLUMN resume_file_name TEXT;
+
+-- Migration 3 — richer resume fields + a separate photo upload. Real
+-- shidduch resumes vary a lot (there's no standard template), but almost
+-- all of them include a date of birth, height, parents, siblings, and a
+-- shul — and often split references into "family" and "personal". Run
+-- these once via the D1 Console, one at a time.
+ALTER TABLE boys ADD COLUMN date_of_birth TEXT;
+ALTER TABLE boys ADD COLUMN height TEXT;
+ALTER TABLE boys ADD COLUMN parents_info TEXT;
+ALTER TABLE boys ADD COLUMN siblings_info TEXT;
+ALTER TABLE boys ADD COLUMN shul_info TEXT;
+ALTER TABLE boys ADD COLUMN family_references TEXT;
+ALTER TABLE boys ADD COLUMN photo_file_key TEXT;
+ALTER TABLE boys ADD COLUMN photo_file_name TEXT;
+ALTER TABLE girls ADD COLUMN date_of_birth TEXT;
+ALTER TABLE girls ADD COLUMN height TEXT;
+ALTER TABLE girls ADD COLUMN parents_info TEXT;
+ALTER TABLE girls ADD COLUMN siblings_info TEXT;
+ALTER TABLE girls ADD COLUMN shul_info TEXT;
+ALTER TABLE girls ADD COLUMN family_references TEXT;
+ALTER TABLE girls ADD COLUMN photo_file_key TEXT;
+ALTER TABLE girls ADD COLUMN photo_file_name TEXT;

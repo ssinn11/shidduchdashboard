@@ -36,6 +36,14 @@ function rowFromBody(body) {
     mother_phone: body.motherPhone || "",
     character_references: body.references || "",
     notes: body.notes || "",
+    date_of_birth: body.dateOfBirth || "",
+    height: body.height || "",
+    parents_info: body.parents || "",
+    siblings_info: body.siblings || "",
+    shul_info: body.shul || "",
+    family_references: body.familyReferences || "",
+    photo_file_key: body.photoFileKey || "",
+    photo_file_name: body.photoFileName || "",
   };
 }
 
@@ -60,6 +68,10 @@ async function handleApi(request, env, path) {
     return handleResumeUpload(env, request);
   }
 
+  if (path === "/api/photo" && method === "POST") {
+    return handlePhotoUpload(env, request);
+  }
+
   const fileMatch = path.match(/^\/api\/files\/(.+)$/);
   if (fileMatch && method === "GET") {
     return handleFileServe(env, decodeURIComponent(fileMatch[1]));
@@ -82,10 +94,10 @@ async function handlePersonTable(env, table, id, method, request) {
     const now = new Date().toISOString();
     await env.DB.prepare(
       `INSERT INTO ${table}
-        (id, name, age, status, location, want_live, learn_plan, learn_place, interests, resume_link, resume_file_key, resume_file_name, mother_phone, character_references, notes, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+        (id, name, age, status, location, want_live, learn_plan, learn_place, interests, resume_link, resume_file_key, resume_file_name, mother_phone, character_references, notes, date_of_birth, height, parents_info, siblings_info, shul_info, family_references, photo_file_key, photo_file_name, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
     )
-      .bind(newId, r.name, r.age, r.status, r.location, r.want_live, r.learn_plan, r.learn_place, r.interests, r.resume_link, r.resume_file_key, r.resume_file_name, r.mother_phone, r.character_references, r.notes, now, now)
+      .bind(newId, r.name, r.age, r.status, r.location, r.want_live, r.learn_plan, r.learn_place, r.interests, r.resume_link, r.resume_file_key, r.resume_file_name, r.mother_phone, r.character_references, r.notes, r.date_of_birth, r.height, r.parents_info, r.siblings_info, r.shul_info, r.family_references, r.photo_file_key, r.photo_file_name, now, now)
       .run();
     return Response.json({ id: newId });
   }
@@ -98,10 +110,11 @@ async function handlePersonTable(env, table, id, method, request) {
     await env.DB.prepare(
       `UPDATE ${table} SET
         name=?, age=?, status=?, location=?, want_live=?, learn_plan=?, learn_place=?,
-        interests=?, resume_link=?, resume_file_key=?, resume_file_name=?, mother_phone=?, character_references=?, notes=?, updated_at=?
+        interests=?, resume_link=?, resume_file_key=?, resume_file_name=?, mother_phone=?, character_references=?, notes=?,
+        date_of_birth=?, height=?, parents_info=?, siblings_info=?, shul_info=?, family_references=?, photo_file_key=?, photo_file_name=?, updated_at=?
        WHERE id=?`
     )
-      .bind(r.name, r.age, r.status, r.location, r.want_live, r.learn_plan, r.learn_place, r.interests, r.resume_link, r.resume_file_key, r.resume_file_name, r.mother_phone, r.character_references, r.notes, now, id)
+      .bind(r.name, r.age, r.status, r.location, r.want_live, r.learn_plan, r.learn_place, r.interests, r.resume_link, r.resume_file_key, r.resume_file_name, r.mother_phone, r.character_references, r.notes, r.date_of_birth, r.height, r.parents_info, r.siblings_info, r.shul_info, r.family_references, r.photo_file_key, r.photo_file_name, now, id)
       .run();
     return Response.json({ ok: true });
   }
@@ -224,15 +237,25 @@ async function extractResumeWithWorkersAI(env, pdfBytes, table) {
     properties: {
       name: { type: "string" },
       age: { type: "string" },
+      dateOfBirth: { type: "string" },
+      height: { type: "string" },
       location: { type: "string" },
       wantLive: { type: "string" },
       learnPlan: { type: "string" },
       learnPlace: { type: "string" },
       interests: { type: "string" },
       motherPhone: { type: "string" },
+      parents: { type: "string" },
+      siblings: { type: "string" },
+      shul: { type: "string" },
+      familyReferences: { type: "string" },
       references: { type: "string" },
+      notes: { type: "string" },
     },
-    required: ["name", "age", "location", "wantLive", "learnPlan", "learnPlace", "interests", "motherPhone", "references"],
+    required: [
+      "name", "age", "dateOfBirth", "height", "location", "wantLive", "learnPlan", "learnPlace",
+      "interests", "motherPhone", "parents", "siblings", "shul", "familyReferences", "references", "notes",
+    ],
   };
 
   const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
@@ -241,16 +264,27 @@ async function extractResumeWithWorkersAI(env, pdfBytes, table) {
         role: "system",
         content:
           "You extract structured contact/bio info from shidduch (matchmaking) resumes for religious Jewish singles. " +
-          "Reply using only information actually present in the text. Use an empty string for anything you can't find — never invent or guess.",
+          "These resumes have no standard template — every family/matchmaker formats them differently, uses different " +
+          "section headings, and includes different combinations of information. Do your best to map information to " +
+          "the right field even when it's labeled differently than you'd expect (for example a 'DOB' or 'Born' line is " +
+          "dateOfBirth; a 'Family' or 'Background' section is parents/siblings). " +
+          "Reply using only information actually present in the text — never invent or guess. Use an empty string for " +
+          "anything not present. If you notice clearly relevant information that doesn't fit any other field, put a " +
+          "short summary of it in the 'notes' field instead of dropping it.",
       },
       {
         role: "user",
         content:
           "Here is the text of a resume for a " + (table === "girls" ? "young woman" : "young man") + ". " +
           'The "learnPlace" field means their current ' + learnLabel + ". " +
-          "Extract: full name, age, current location/city, where they want to live (if mentioned), " +
-          "their learning plan/commitment, their " + learnLabel + ", comma-separated interests, " +
-          "mother's phone number (if listed), and any character references listed.\n\nResume text:\n" + text,
+          "Extract: full name; age (as a plain number if given, or leave blank if only a date of birth is given); " +
+          "date of birth (dateOfBirth) if stated; height if stated; current location/city; where they want to live " +
+          "(if mentioned); their learning plan/commitment; their " + learnLabel + "; comma-separated interests; " +
+          "mother's phone number (if listed); a short summary of parents (names/occupations, if given); a short " +
+          "summary of siblings (if given); their shul/synagogue and rabbi (if given); any references listed under a " +
+          "heading like 'Family References' (familyReferences); any other references, such as 'Personal " +
+          "References', 'Character References', or an unlabeled reference list (references); and anything else " +
+          "clearly relevant that doesn't fit the above (notes).\n\nResume text:\n" + text,
       },
     ],
     response_format: { type: "json_schema", json_schema: schema },
@@ -265,13 +299,20 @@ async function extractResumeWithWorkersAI(env, pdfBytes, table) {
   return {
     name: parsed.name || "",
     age: parsed.age ? Number(parsed.age) || null : null,
+    dateOfBirth: parsed.dateOfBirth || "",
+    height: parsed.height || "",
     location: parsed.location || "",
     wantLive: parsed.wantLive || "",
     learnPlan: parsed.learnPlan || "",
     learnPlace: parsed.learnPlace || "",
     interests: parsed.interests || "",
     motherPhone: parsed.motherPhone || "",
+    parents: parsed.parents || "",
+    siblings: parsed.siblings || "",
+    shul: parsed.shul || "",
+    familyReferences: parsed.familyReferences || "",
     references: parsed.references || "",
+    notes: parsed.notes || "",
   };
 }
 
@@ -279,8 +320,42 @@ async function handleFileServe(env, key) {
   const obj = await env.RESUMES.get(key);
   if (!obj) return new Response("Not found", { status: 404 });
   const headers = new Headers();
-  headers.set("content-type", obj.httpMetadata && obj.httpMetadata.contentType ? obj.httpMetadata.contentType : "application/pdf");
+  headers.set("content-type", obj.httpMetadata && obj.httpMetadata.contentType ? obj.httpMetadata.contentType : "application/octet-stream");
   headers.set("content-disposition", "inline");
   headers.set("cache-control", "private, max-age=0, must-revalidate");
   return new Response(obj.body, { headers: headers });
+}
+
+// ---------- photo upload (separate from the PDF resume, no AI involved) ----------
+
+// Accepts a multipart/form-data POST with fields:
+//   file  — a jpg/png image (required)
+//   table — "boys" or "girls" (just used to organize the R2 key)
+// Stores the image in R2 (same bucket as resumes, different key prefix) and
+// returns its reference. Used for the common case where a matchmaker has a
+// separate photo attachment rather than one embedded in the resume PDF.
+async function handlePhotoUpload(env, request) {
+  const form = await request.formData();
+  const file = form.get("file");
+  const table = form.get("table") === "girls" ? "girls" : "boys";
+
+  if (!file || typeof file.arrayBuffer !== "function") {
+    return new Response("An image file is required", { status: 400 });
+  }
+  const ALLOWED = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/heic": "heic" };
+  const ext = ALLOWED[file.type];
+  if (!ext) {
+    return new Response("Please upload a JPG, PNG, WEBP, or HEIC image", { status: 400 });
+  }
+
+  const bytes = await file.arrayBuffer();
+  const MAX_BYTES = 10 * 1024 * 1024;
+  if (bytes.byteLength > MAX_BYTES) {
+    return new Response("That image is too large (10MB max)", { status: 400 });
+  }
+
+  const key = `${table}/photos/${crypto.randomUUID()}.${ext}`;
+  await env.RESUMES.put(key, bytes, { httpMetadata: { contentType: file.type } });
+
+  return Response.json({ key, name: (file.name || "photo." + ext).toString() });
 }

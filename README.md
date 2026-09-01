@@ -3,8 +3,10 @@
 A private, shared prospect tracker: profiles for boys and girls in a
 spreadsheet-style table, ranked match suggestions, a match log with
 outcomes, and PDF resume uploads that Cloudflare's built-in AI reads
-automatically to fill in the profile fields for you to review. You own the
-code and the data; only the email addresses you choose can ever open it.
+automatically to fill in the profile fields for you to review — plus a
+separate photo upload, since pictures often come as their own attachment.
+You own the code and the data; only the email addresses you choose can
+ever open it.
 
 ## What's in here
 
@@ -14,6 +16,7 @@ code and the data; only the email addresses you choose can ever open it.
   everything else as static files from `public/`.
 - `schema.sql` — the database tables (run this once against your D1
   database; a "Migration 2" section near the bottom adds the resume-file
+  columns, and "Migration 3" adds the richer resume fields plus the photo
   columns — see step 2 below).
 - `wrangler.toml` — tells Cloudflare how to wire this all together: which
   file is the entry point, where the static files live, which D1 database
@@ -43,9 +46,10 @@ and execute them one at a time if the console is a single-line box rather
 than a multi-line editor.
 
 If you already had this database set up before resumes/PDFs were added,
-you only need to run the four new lines under "Migration 2" at the bottom
-of `schema.sql` (the `ALTER TABLE ... ADD COLUMN` ones) — the earlier
-tables are already there.
+you only need to run the new lines under "Migration 2" and/or "Migration 3"
+at the bottom of `schema.sql` (the `ALTER TABLE ... ADD COLUMN` ones) — the
+earlier tables are already there. Run each line one at a time if the
+console is a single-line box.
 
 Copy the database's ID (shown on its Overview page) into `wrangler.toml`
 where it says `database_id`.
@@ -72,6 +76,16 @@ Google Docs, Canva, etc.). A resume that's really a scanned photo or scan
 of a paper document has no text to read, so extraction will fail for
 those — the file still uploads and saves fine, you'll just fill in the
 fields by hand for that one.
+
+Real shidduch resumes don't follow one fixed template — every family's
+looks a little different. The AI extraction is deliberately flexible
+about this: it looks for a set of common fields (date of birth, height,
+parents, siblings, shul/rav, and separate "family" vs. "personal"
+references, in addition to the original fields) wherever they appear on
+the page, and never invents information that isn't actually there. If a
+resume has extra content that doesn't fit any of those named fields, it
+gets added to the Notes field instead of being silently dropped, so it's
+worth skimming Notes after every upload.
 
 ### 5. Create the Worker project and connect it to GitHub
 
@@ -106,8 +120,8 @@ it's on your list, Cloudflare emails a one-time code and lets them in.
 Open your site's address in a private/incognito window as a real test —
 you should be asked to verify by email before anything loads. Once in, add
 a couple of test profiles on the Boys and Girls tabs, try uploading a PDF
-resume and using "Upload & Extract with AI" to see the fields fill in, then
-try Find a Match.
+resume and using "Upload & Extract with AI" to see the fields fill in, try
+uploading a photo separately, then try Find a Match.
 
 ## Making changes later
 
@@ -138,6 +152,14 @@ every push — no separate "publish" step.
   and it's instructed never to invent information that isn't in the PDF.
   You can also skip the upload and just paste a Google Drive/Dropbox link
   in the field below it, or use both.
+- Photos are a separate upload from the resume, since they often come as
+  their own attachment. Use the "Upload Photo" button in the form (accepts
+  JPG, PNG, WEBP, or HEIC, up to 10MB) — it just stores the image, no AI
+  involved, and shows a thumbnail once saved.
+- The form also has fields for date of birth, height, parents, siblings,
+  shul/rav, and family references (in addition to the original personal
+  references field) — these fill in automatically from a resume upload
+  when present, or can be typed in by hand.
 - The girls' "learn place" field is labeled **Seminary** throughout the
   app; the same field is labeled "Where They Learn" for boys. Under the
   hood it's the same database column for both tables, just relabeled in
