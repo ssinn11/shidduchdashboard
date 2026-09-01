@@ -1,0 +1,794 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Shidduch Ledger</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%8D%3C/text%3E%3C/svg%3E" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Karla:wght@400;500;600;700&display=swap');
+
+  :root{
+    --bg:#faf5ec;
+    --surface:#ffffff;
+    --surface-2:#f3ead9;
+    --ink:#2a1c26;
+    --ink-soft:#5c4a54;
+    --muted:#8d7a84;
+    --border:#e6d9c6;
+    --primary:#7a2e42;
+    --primary-ink:#ffffff;
+    --primary-soft:#f3dee3;
+    --gold:#a9762f;
+    --gold-soft:#f2e3c8;
+    --st-available:#3f7d5c;
+    --st-available-bg:#e3efe7;
+    --st-dating:#3b6ea5;
+    --st-dating-bg:#e2ecf5;
+    --st-onhold:#8d7a84;
+    --st-onhold-bg:#efe7ea;
+    --st-engaged:#a9762f;
+    --st-engaged-bg:#f2e3c8;
+    --st-married:#6a4c93;
+    --st-married-bg:#ece4f3;
+    --st-declined:#a5453b;
+    --st-declined-bg:#f4e1de;
+    --shadow: 0 1px 2px rgba(42,28,38,.06), 0 4px 16px rgba(42,28,38,.06);
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#1c1319; --surface:#261a22; --surface-2:#2f202a; --ink:#f5e9ee; --ink-soft:#d8c3cd;
+      --muted:#a98d99; --border:#3d2a34; --primary:#e08fa3; --primary-ink:#2a1319; --primary-soft:#3a222b;
+      --gold:#d9ab5c; --gold-soft:#3a2f1f; --st-available:#6fcb9c; --st-available-bg:#1f3329;
+      --st-dating:#7fb4e8; --st-dating-bg:#1f2c3a; --st-onhold:#b7a1ac; --st-onhold-bg:#2c2229;
+      --st-engaged:#d9ab5c; --st-engaged-bg:#3a2f1f; --st-married:#c0a3e6; --st-married-bg:#2c2338;
+      --st-declined:#e0897c; --st-declined-bg:#3a2320; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 20px rgba(0,0,0,.35);
+    }
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Karla',system-ui,-apple-system,sans-serif;line-height:1.45;}
+  h1,h2,h3,.display{font-family:'Fraunces',Georgia,serif;color:var(--ink);text-wrap:balance;margin:0;}
+  a{color:var(--primary);}
+  button{font-family:inherit;}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 24px 80px;}
+  .topbar{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:22px;}
+  .brand{display:flex;align-items:center;gap:14px;}
+  .brand .mark{width:46px;height:46px;border-radius:12px;background:linear-gradient(155deg,var(--primary),var(--gold));display:flex;align-items:center;justify-content:center;font-size:22px;flex:none;box-shadow:var(--shadow);}
+  .brand h1{font-size:26px;font-weight:600;letter-spacing:.2px;}
+  .brand p{margin:2px 0 0;color:var(--muted);font-size:13.5px;}
+  .who{display:flex;align-items:center;gap:8px;}
+  .who label{font-size:12.5px;color:var(--muted);}
+  .who input{background:var(--surface);border:1px solid var(--border);color:var(--ink);border-radius:8px;padding:7px 10px;font-size:13.5px;width:150px;}
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:22px;flex-wrap:wrap;}
+  .tab{padding:10px 16px;border:none;background:none;color:var(--muted);font-size:14.5px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s;}
+  .tab:hover{color:var(--ink);}
+  .tab.active{color:var(--primary);border-bottom-color:var(--primary);}
+  .badge-count{display:inline-block;margin-left:6px;background:var(--surface-2);color:var(--ink-soft);border-radius:99px;padding:1px 7px;font-size:11.5px;font-weight:700;}
+  .panel{display:none;}
+  .panel.active{display:block;animation:fade .18s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(2px);}to{opacity:1;transform:none;}}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 16px;min-width:96px;box-shadow:var(--shadow);}
+  .stat .n{font-family:'Fraunces',serif;font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;}
+  .stat .l{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:1px;}
+  .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;}
+  .toolbar input[type="search"], .toolbar select{background:var(--surface);border:1px solid var(--border);color:var(--ink);border-radius:9px;padding:9px 12px;font-size:14px;}
+  .toolbar input[type="search"]{flex:1;min-width:160px;}
+  .spacer{flex:1;}
+  .btn{display:inline-flex;align-items:center;gap:6px;background:var(--primary);color:var(--primary-ink);border:none;padding:9px 16px;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;transition:filter .15s, transform .1s;}
+  .btn:hover{filter:brightness(1.08);}
+  .btn:active{transform:translateY(1px);}
+  .btn.secondary{background:var(--surface-2);color:var(--ink);border:1px solid var(--border);}
+  .btn.ghost{background:none;color:var(--primary);border:1px solid var(--primary-soft);}
+  .btn.danger{background:var(--st-declined-bg);color:var(--st-declined);}
+  .btn.small{padding:6px 11px;font-size:12.5px;border-radius:7px;}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px;}
+  .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .card-name{font-family:'Fraunces',serif;font-size:18px;font-weight:600;}
+  .card-sub{font-size:12.5px;color:var(--muted);}
+  .card-row{font-size:13px;color:var(--ink-soft);display:flex;gap:6px;}
+  .card-row b{color:var(--ink);font-weight:600;}
+  .chips{display:flex;flex-wrap:wrap;gap:5px;}
+  .chip{background:var(--surface-2);color:var(--ink-soft);border-radius:99px;padding:3px 9px;font-size:11.5px;font-weight:600;}
+  .chip.reason-strong{background:var(--primary-soft);color:var(--primary);}
+  .chip.reason-mild{background:var(--gold-soft);color:var(--gold);}
+  .card-actions{display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;}
+  .pill{display:inline-block;padding:3px 10px;border-radius:99px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;}
+  .pill.st-available{background:var(--st-available-bg);color:var(--st-available);}
+  .pill.st-dating{background:var(--st-dating-bg);color:var(--st-dating);}
+  .pill.st-onhold{background:var(--st-onhold-bg);color:var(--st-onhold);}
+  .pill.st-engaged{background:var(--st-engaged-bg);color:var(--st-engaged);}
+  .pill.st-married{background:var(--st-married-bg);color:var(--st-married);}
+  .pill.st-suggested{background:var(--st-dating-bg);color:var(--st-dating);}
+  .pill.st-declined{background:var(--st-declined-bg);color:var(--st-declined);}
+  .empty{text-align:center;padding:50px 20px;color:var(--muted);border:1.5px dashed var(--border);border-radius:var(--radius);}
+  .empty .display{font-size:19px;color:var(--ink-soft);margin-bottom:6px;}
+  .match-controls{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;margin-bottom:20px;box-shadow:var(--shadow);}
+  .field{display:flex;flex-direction:column;gap:5px;}
+  .field label{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px;}
+  .seg{display:flex;border:1px solid var(--border);border-radius:9px;overflow:hidden;}
+  .seg button{border:none;background:var(--surface);color:var(--ink-soft);padding:9px 16px;font-size:13.5px;font-weight:700;cursor:pointer;}
+  .seg button.active{background:var(--primary);color:var(--primary-ink);}
+  select, input[type="text"], input[type="number"], input[type="tel"], input[type="date"], textarea{background:var(--surface);border:1px solid var(--border);color:var(--ink);border-radius:9px;padding:9px 12px;font-size:14px;font-family:inherit;}
+  textarea{resize:vertical;min-height:64px;}
+  .match-result{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;display:flex;gap:16px;align-items:center;margin-bottom:10px;box-shadow:var(--shadow);}
+  .rank{font-family:'Fraunces',serif;font-size:20px;color:var(--muted);width:26px;flex:none;text-align:center;}
+  .score-wrap{width:64px;flex:none;text-align:center;}
+  .score-num{font-family:'Fraunces',serif;font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;}
+  .score-bar{height:5px;border-radius:99px;background:var(--surface-2);margin-top:5px;overflow:hidden;}
+  .score-bar > i{display:block;height:100%;border-radius:99px;}
+  .mr-body{flex:1;min-width:0;}
+  .mr-name{font-family:'Fraunces',serif;font-size:16.5px;font-weight:600;}
+  .mr-history{font-size:12px;color:var(--muted);margin-top:2px;}
+  .mr-actions{display:flex;gap:8px;flex:none;flex-wrap:wrap;}
+  .section-label{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700;margin:22px 0 10px;}
+  .log-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;display:flex;gap:14px;align-items:center;margin-bottom:10px;box-shadow:var(--shadow);flex-wrap:wrap;}
+  .log-names{font-family:'Fraunces',serif;font-size:16px;font-weight:600;flex:1;min-width:180px;}
+  .log-meta{font-size:12px;color:var(--muted);}
+  .log-notes{width:100%;margin-top:4px;font-size:13px;color:var(--ink-soft);background:var(--surface-2);border-radius:8px;padding:8px 10px;}
+  .overlay{position:fixed;inset:0;background:rgba(20,10,15,.45);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;z-index:50;}
+  .overlay.open{display:flex;}
+  .modal{background:var(--surface);border-radius:16px;padding:26px 26px 22px;max-width:560px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);border:1px solid var(--border);}
+  .modal h2{font-size:20px;margin-bottom:16px;}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .form-grid .full{grid-column:1/-1;}
+  .form-grid .field label{margin-bottom:2px;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
+  .banner{background:var(--gold-soft);color:var(--gold);border:1px solid var(--gold);border-radius:10px;padding:9px 14px;font-size:13px;margin-bottom:18px;}
+  .banner.error{background:var(--st-declined-bg);color:var(--st-declined);border-color:var(--st-declined);}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:99px;font-size:13.5px;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:100;opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
+  @media (max-width:640px){
+    .form-grid{grid-template-columns:1fr;}
+    .match-result{flex-wrap:wrap;}
+    .mr-actions{width:100%;justify-content:flex-end;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand">
+      <div class="mark">💍</div>
+      <div>
+        <h1>Shidduch Ledger</h1>
+        <p>Prospects, suggestions, and outcomes — all in one shared book.</p>
+      </div>
+    </div>
+    <div class="who">
+      <label for="userName">Logging as</label>
+      <input id="userName" type="text" placeholder="Your name" />
+    </div>
+  </div>
+
+  <div id="modeBanner"></div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="boys">Boys <span class="badge-count" id="countBoys">0</span></button>
+    <button class="tab" data-tab="girls">Girls <span class="badge-count" id="countGirls">0</span></button>
+    <button class="tab" data-tab="find">Find a Match</button>
+    <button class="tab" data-tab="log">Match Log <span class="badge-count" id="countLog">0</span></button>
+  </div>
+
+  <div class="panel active" id="panel-boys">
+    <div class="stats" id="statsBoys"></div>
+    <div class="toolbar">
+      <input type="search" id="searchBoys" placeholder="Search boys by name, location, interests…" />
+      <select id="filterBoys">
+        <option value="">All statuses</option>
+        <option>Available</option><option>Dating</option><option>On Hold</option><option>Engaged</option><option>Married</option>
+      </select>
+      <div class="spacer"></div>
+      <button class="btn" onclick="openPersonModal('boys')">+ Add a Boy</button>
+    </div>
+    <div class="grid" id="listBoys"></div>
+  </div>
+
+  <div class="panel" id="panel-girls">
+    <div class="stats" id="statsGirls"></div>
+    <div class="toolbar">
+      <input type="search" id="searchGirls" placeholder="Search girls by name, location, interests…" />
+      <select id="filterGirls">
+        <option value="">All statuses</option>
+        <option>Available</option><option>Dating</option><option>On Hold</option><option>Engaged</option><option>Married</option>
+      </select>
+      <div class="spacer"></div>
+      <button class="btn" onclick="openPersonModal('girls')">+ Add a Girl</button>
+    </div>
+    <div class="grid" id="listGirls"></div>
+  </div>
+
+  <div class="panel" id="panel-find">
+    <div class="match-controls">
+      <div class="field">
+        <label>Finding matches for a</label>
+        <div class="seg" id="genderSeg">
+          <button class="active" data-g="boys">Boy</button>
+          <button data-g="girls">Girl</button>
+        </div>
+      </div>
+      <div class="field" style="min-width:220px;">
+        <label id="personSelectLabel">Choose a boy</label>
+        <select id="personSelect"></select>
+      </div>
+    </div>
+    <div id="findResults"></div>
+  </div>
+
+  <div class="panel" id="panel-log">
+    <div class="stats" id="statsLog"></div>
+    <div class="toolbar">
+      <input type="search" id="searchLog" placeholder="Search the log by name…" />
+      <select id="filterLog"><option value="">All statuses</option></select>
+      <div class="spacer"></div>
+      <button class="btn secondary" onclick="openMatchModal()">+ Log a Match Manually</button>
+    </div>
+    <div id="logList"></div>
+  </div>
+</div>
+
+<div class="overlay" id="personOverlay">
+  <div class="modal">
+    <h2 id="personModalTitle">Add a Boy</h2>
+    <div class="form-grid">
+      <div class="field full"><label>Full Name *</label><input type="text" id="p_name" /></div>
+      <div class="field"><label>Age</label><input type="number" id="p_age" min="17" max="99" /></div>
+      <div class="field"><label>Status</label>
+        <select id="p_status">
+          <option>Available</option><option>Dating</option><option>On Hold</option><option>Engaged</option><option>Married</option>
+        </select>
+      </div>
+      <div class="field"><label>Current Location</label><input type="text" id="p_location" placeholder="e.g. Lakewood, NJ" /></div>
+      <div class="field"><label>Where They Want to Live</label><input type="text" id="p_wantLive" placeholder="e.g. Lakewood, Passaic" /></div>
+      <div class="field"><label>How Long to Learn</label><input type="text" id="p_learnPlan" placeholder="e.g. 3 years in kollel" /></div>
+      <div class="field"><label>Where They Learn</label><input type="text" id="p_learnPlace" placeholder="e.g. Yeshiva / seminary name" /></div>
+      <div class="field full"><label>Interests</label><input type="text" id="p_interests" placeholder="comma-separated, e.g. chesed, music, sports" /></div>
+      <div class="field full"><label>Resume (link to PDF)</label><input type="text" id="p_resumeLink" placeholder="Paste a Google Drive / Dropbox link to their resume PDF" /></div>
+      <div class="field full"><label>Mother's Phone Number</label><input type="tel" id="p_motherPhone" placeholder="(555) 555-5555" /></div>
+      <div class="field full"><label>Character References</label><textarea id="p_references" placeholder="Name — relationship — phone (a few is best)"></textarea></div>
+      <div class="field full"><label>Private Notes</label><textarea id="p_notes" placeholder="Anything else worth remembering"></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn danger" id="p_deleteBtn" style="display:none;" onclick="deleteCurrentPerson()">Delete</button>
+      <div class="spacer"></div>
+      <button class="btn secondary" onclick="closePersonModal()">Cancel</button>
+      <button class="btn" onclick="savePerson()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="matchOverlay">
+  <div class="modal">
+    <h2>Log a Match</h2>
+    <div class="form-grid">
+      <div class="field"><label>Boy</label><select id="m_boy"></select></div>
+      <div class="field"><label>Girl</label><select id="m_girl"></select></div>
+      <div class="field"><label>Status</label><select id="m_status"></select></div>
+      <div class="field"><label>Date Suggested</label><input type="date" id="m_date" /></div>
+      <div class="field full"><label>Suggested By</label><input type="text" id="m_suggestedBy" /></div>
+      <div class="field full"><label>Notes</label><textarea id="m_notes"></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn secondary" onclick="closeMatchModal()">Cancel</button>
+      <button class="btn" onclick="saveMatch()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  var MATCH_STATUSES = ["Suggested","Reached Out","First Date","Ongoing","On Hold","Declined","Engaged","Married","Ended"];
+  var STATUS_CLASS = {
+    "Available":"st-available","Dating":"st-dating","On Hold":"st-onhold","Engaged":"st-engaged","Married":"st-married",
+    "Suggested":"st-suggested","Reached Out":"st-suggested","First Date":"st-dating","Ongoing":"st-dating",
+    "Declined":"st-declined","Ended":"st-declined"
+  };
+
+  var state = { boys: [], girls: [], matches: [] };
+  var editing = { person: null, list: null, match: null };
+  var POLL_MS = 20000;
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  }); }
+  function splitList(str){
+    if(!str) return [];
+    return String(str).split(/[,;/]+/).map(function(s){return s.trim();}).filter(Boolean);
+  }
+  function norm(s){ return (s||"").toLowerCase().trim(); }
+  function todayISO(){
+    var d = new Date(); var tz = d.getTimezoneOffset()*60000;
+    return new Date(d - tz).toISOString().slice(0,10);
+  }
+  function fmtDate(iso){
+    if(!iso) return "—";
+    var d = new Date(iso + "T00:00:00");
+    if(isNaN(d)) return iso;
+    return d.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
+  }
+  function toast(msg){
+    var t = $("toast"); t.textContent = msg; t.classList.add("show");
+    clearTimeout(toast._h);
+    toast._h = setTimeout(function(){ t.classList.remove("show"); }, 2600);
+  }
+  function getUserName(){
+    var v = $("userName").value.trim();
+    return v || "Unspecified";
+  }
+
+  // ---------- matching algorithm ----------
+  function overlapOf(listA, listB){
+    var out = [];
+    listA.forEach(function(a){
+      var an = norm(a);
+      listB.forEach(function(b){
+        var bn = norm(b);
+        if(!an || !bn) return;
+        if(an === bn || an.indexOf(bn) !== -1 || bn.indexOf(an) !== -1){
+          if(out.indexOf(a) === -1) out.push(a);
+        }
+      });
+    });
+    return out;
+  }
+  function locationsMatch(a, b){
+    var an = norm(a), bn = norm(b);
+    if(!an || !bn) return false;
+    return an === bn || an.indexOf(bn) !== -1 || bn.indexOf(an) !== -1;
+  }
+  function parseYears(text){
+    if(!text) return null;
+    var nums = String(text).match(/\d+(\.\d+)?/g);
+    if(!nums) return null;
+    var vals = nums.map(Number);
+    return [Math.min.apply(null, vals), Math.max.apply(null, vals)];
+  }
+  function rangesClose(r1, r2){
+    if(!r1 || !r2) return false;
+    return r1[1] >= (r2[0]-1) && r2[1] >= (r1[0]-1);
+  }
+
+  function scoreMatch(a, b){
+    var reasons = [];
+    var score = 0;
+
+    var aWant = splitList(a.want_live), bWant = splitList(b.want_live);
+    var wantOverlap = overlapOf(aWant, bWant);
+    if(wantOverlap.length){
+      score += 35;
+      reasons.push({t:"strong", text:"Both open to living in " + wantOverlap.join(", ")});
+    }
+
+    if(locationsMatch(a.location, b.location)){
+      score += 10;
+      reasons.push({t:"mild", text:"Both currently around " + (a.location || b.location)});
+    }
+
+    var aY = parseYears(a.learn_plan), bY = parseYears(b.learn_plan);
+    if(aY && bY && rangesClose(aY,bY)){
+      score += 20;
+      reasons.push({t:"strong", text:"Learning plans line up (\u201c" + a.learn_plan + "\u201d / \u201c" + b.learn_plan + "\u201d)"});
+    }
+
+    var aInt = splitList(a.interests), bInt = splitList(b.interests);
+    var sharedInt = overlapOf(aInt, bInt);
+    if(sharedInt.length){
+      var pts = Math.min(sharedInt.length * 7, 20);
+      score += pts;
+      reasons.push({t: pts>=14 ? "strong" : "mild", text:"Shared interests: " + sharedInt.join(", ")});
+    }
+
+    if(locationsMatch(a.learn_place, b.learn_place)){
+      score += 15;
+      reasons.push({t:"mild", text:"Learn/work in a similar area"});
+    }
+
+    return { score: Math.min(Math.round(score), 100), reasons: reasons };
+  }
+
+  function matchHistory(boyId, girlId){
+    var found = state.matches.filter(function(m){ return m.boy_id===boyId && m.girl_id===girlId; });
+    found.sort(function(x,y){ return (y.updated_at||"").localeCompare(x.updated_at||""); });
+    return found[0] || null;
+  }
+
+  // ---------- data layer: fetch-based API backed by D1 ----------
+  function toWire(data){
+    return {
+      name: data.name, age: data.age, status: data.status, location: data.location,
+      wantLive: data.wantLive, learnPlan: data.learnPlan, learnPlace: data.learnPlace,
+      interests: data.interests, resumeLink: data.resumeLink, motherPhone: data.motherPhone,
+      references: data.references, notes: data.notes
+    };
+  }
+  var api = {
+    list: function(name){ return fetch("/api/"+name).then(function(r){
+      if(!r.ok) throw new Error(name+" fetch failed: "+r.status);
+      return r.json();
+    }); },
+    add: function(name, data){ return fetch("/api/"+name, {
+      method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(toWire(data))
+    }).then(function(r){ if(!r.ok) throw new Error("create failed"); return r.json(); }); },
+    update: function(name, id, data){ return fetch("/api/"+name+"/"+id, {
+      method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(toWire(data))
+    }).then(function(r){ if(!r.ok) throw new Error("update failed"); return r.json(); }); },
+    remove: function(name, id){ return fetch("/api/"+name+"/"+id, { method:"DELETE" })
+      .then(function(r){ if(!r.ok) throw new Error("delete failed"); return r.json(); }); }
+  };
+  var matchApi = {
+    list: function(){ return fetch("/api/matches").then(function(r){
+      if(!r.ok) throw new Error("matches fetch failed"); return r.json();
+    }); },
+    add: function(data){ return fetch("/api/matches", {
+      method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(data)
+    }).then(function(r){ if(!r.ok) throw new Error("create match failed"); return r.json(); }); },
+    update: function(id, data){ return fetch("/api/matches/"+id, {
+      method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(data)
+    }).then(function(r){ if(!r.ok) throw new Error("update match failed"); return r.json(); }); },
+    remove: function(id){ return fetch("/api/matches/"+id, { method:"DELETE" })
+      .then(function(r){ if(!r.ok) throw new Error("delete match failed"); return r.json(); }); }
+  };
+
+  function showBanner(msg, isError){
+    $("modeBanner").innerHTML = msg ? '<div class="banner'+(isError?' error':'')+'">'+msg+'</div>' : "";
+  }
+
+  function refreshAll(){
+    return Promise.all([ api.list("boys"), api.list("girls"), matchApi.list() ])
+      .then(function(res){
+        state.boys = res[0]; state.girls = res[1]; state.matches = res[2];
+        showBanner("");
+        renderAll();
+      })
+      .catch(function(err){
+        console.error(err);
+        showBanner("Can't reach the database right now — check that your D1 database is bound to this Pages project (Settings → Functions → D1 database bindings).", true);
+      });
+  }
+
+  // ---------- rendering ----------
+  function personCard(p, listName){
+    var chips = splitList(p.interests).slice(0,4).map(function(i){ return '<span class="chip">'+esc(i)+'</span>'; }).join("");
+    var more = splitList(p.interests).length > 4 ? '<span class="chip">+'+(splitList(p.interests).length-4)+' more</span>' : "";
+    var cls = STATUS_CLASS[p.status] || "st-available";
+    var resumeBtn = p.resume_link ? '<a class="btn small ghost" href="'+esc(p.resume_link)+'" target="_blank" rel="noopener">📄 Resume ↗</a>' : "";
+    return '' +
+      '<div class="card">' +
+        '<div class="card-top">' +
+          '<div><div class="card-name">'+esc(p.name)+'</div>' +
+          '<div class="card-sub">'+(p.age?esc(p.age)+' &middot; ':'')+esc(p.location||"—")+'</div></div>' +
+          '<span class="pill '+cls+'">'+esc(p.status||"Available")+'</span>' +
+        '</div>' +
+        '<div class="card-row"><b>Wants to live:</b> '+esc(p.want_live||"—")+'</div>' +
+        '<div class="card-row"><b>Learning:</b> '+esc(p.learn_plan||"—")+'</div>' +
+        '<div class="card-row"><b>Learns at:</b> '+esc(p.learn_place||"—")+'</div>' +
+        '<div class="chips">'+(chips||'<span class="card-sub">No interests listed</span>')+more+'</div>' +
+        '<div class="card-actions">' +
+          '<button class="btn small secondary" onclick="openPersonModal(\''+listName+'\',\''+p.id+'\')">Edit</button>' +
+          '<button class="btn small ghost" onclick="jumpToFind(\''+listName+'\',\''+p.id+'\')">Find matches →</button>' +
+          resumeBtn +
+        '</div>' +
+      '</div>';
+  }
+
+  function statTiles(list, containerId){
+    var counts = {Available:0,Dating:0,"On Hold":0,Engaged:0,Married:0};
+    list.forEach(function(p){ if(counts[p.status]!==undefined) counts[p.status]++; });
+    var html = '<div class="stat"><div class="n">'+list.length+'</div><div class="l">Total</div></div>';
+    Object.keys(counts).forEach(function(k){
+      html += '<div class="stat"><div class="n">'+counts[k]+'</div><div class="l">'+k+'</div></div>';
+    });
+    $(containerId).innerHTML = html;
+  }
+
+  function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+
+  function renderList(listName){
+    var list = state[listName].slice();
+    var search = norm($("search"+cap(listName)).value);
+    var filter = $("filter"+cap(listName)).value;
+    statTiles(list, "stats"+cap(listName));
+    if(search){
+      list = list.filter(function(p){
+        return norm(p.name).indexOf(search)!==-1 || norm(p.location).indexOf(search)!==-1 ||
+               norm(p.interests).indexOf(search)!==-1 || norm(p.learn_place).indexOf(search)!==-1;
+      });
+    }
+    if(filter){ list = list.filter(function(p){ return p.status===filter; }); }
+    var el = $("list"+cap(listName));
+    if(!list.length){
+      el.innerHTML = '<div class="empty" style="grid-column:1/-1"><div class="display">No one here yet</div>Add a profile to get started, or adjust your search.</div>';
+      return;
+    }
+    el.innerHTML = list.map(function(p){ return personCard(p, listName); }).join("");
+  }
+
+  function renderFind(){
+    var g = document.querySelector("#genderSeg button.active").dataset.g;
+    var opp = g==="boys" ? "girls" : "boys";
+    $("personSelectLabel").textContent = "Choose a " + (g==="boys"?"boy":"girl");
+    var pool = state[g].filter(function(p){ return p.status!=="Married"; });
+    var sel = $("personSelect");
+    var prev = sel.value;
+    sel.innerHTML = pool.map(function(p){ return '<option value="'+p.id+'">'+esc(p.name)+' ('+esc(p.status)+')</option>'; }).join("");
+    if(pool.some(function(p){return p.id===prev;})) sel.value = prev;
+
+    var pid = sel.value;
+    var person = state[g].find(function(p){ return p.id===pid; });
+    if(!person){
+      $("findResults").innerHTML = '<div class="empty"><div class="display">Add some profiles first</div>Once you have people on both lists, pick one here to see ranked suggestions.</div>';
+      return;
+    }
+    var candidates = state[opp].filter(function(c){ return c.status!=="Engaged" && c.status!=="Married"; });
+    var scored = candidates.map(function(c){
+      var r = scoreMatch(person, c);
+      var hist = matchHistory(g==="boys"?person.id:c.id, g==="boys"?c.id:person.id);
+      return { person: c, score: r.score, reasons: r.reasons, hist: hist };
+    });
+    scored.sort(function(a,b){ return b.score - a.score; });
+
+    var fresh = scored.filter(function(s){ return !s.hist; });
+    var suggested = scored.filter(function(s){ return s.hist; });
+
+    function row(s, rank){
+      var barColor = s.score>=70 ? "var(--st-available)" : (s.score>=40 ? "var(--gold)" : "var(--muted)");
+      var chips = s.reasons.map(function(r){ return '<span class="chip reason-'+r.t+'">'+esc(r.text)+'</span>'; }).join("");
+      if(!chips) chips = '<span class="card-sub">No overlapping criteria found — use your judgment</span>';
+      var histNote = s.hist ? '<div class="mr-history">Previously suggested '+fmtDate(s.hist.date_suggested)+' — status: '+esc(s.hist.status)+'</div>' : '';
+      var boyId = g==="boys" ? person.id : s.person.id;
+      var girlId = g==="boys" ? s.person.id : person.id;
+      var boyName = g==="boys" ? person.name : s.person.name;
+      var girlName = g==="boys" ? s.person.name : person.name;
+      return '' +
+        '<div class="match-result">' +
+          '<div class="rank">'+rank+'</div>' +
+          '<div class="score-wrap"><div class="score-num">'+s.score+'%</div><div class="score-bar"><i style="width:'+s.score+'%;background:'+barColor+'"></i></div></div>' +
+          '<div class="mr-body">' +
+            '<div class="mr-name">'+esc(s.person.name)+' <span class="pill '+(STATUS_CLASS[s.person.status]||'st-available')+'">'+esc(s.person.status)+'</span></div>' +
+            '<div class="chips">'+chips+'</div>' +
+            histNote +
+          '</div>' +
+          '<div class="mr-actions">' +
+            '<button class="btn small secondary" onclick="openPersonModal(\''+opp+'\',\''+s.person.id+'\')">View</button>' +
+            (s.person.resume_link ? '<a class="btn small ghost" href="'+esc(s.person.resume_link)+'" target="_blank" rel="noopener">📄 Resume ↗</a>' : "") +
+            '<button class="btn small" onclick="quickSuggest(\''+boyId+'\',\''+esc(boyName).replace(/'/g,"\\'")+'\',\''+girlId+'\',\''+esc(girlName).replace(/'/g,"\\'")+'\')">Suggest This Match</button>' +
+          '</div>' +
+        '</div>';
+    }
+
+    var html = "";
+    if(!fresh.length && !suggested.length){
+      html = '<div class="empty"><div class="display">No candidates available</div>Everyone on the other list is currently engaged or married.</div>';
+    } else {
+      if(fresh.length){
+        html += fresh.map(function(s,i){ return row(s,i+1); }).join("");
+      } else {
+        html += '<div class="empty"><div class="display">No new candidates</div>Everyone compatible has already been suggested — see below for history.</div>';
+      }
+      if(suggested.length){
+        html += '<div class="section-label">Previously suggested to '+esc(person.name)+'</div>';
+        html += suggested.map(function(s,i){ return row(s, "•"); }).join("");
+      }
+    }
+    $("findResults").innerHTML = html;
+  }
+
+  function renderLog(){
+    var list = state.matches.slice();
+    var search = norm($("searchLog").value);
+    var filter = $("filterLog").value;
+    var counts = { total:list.length, active:0, engaged:0, married:0 };
+    list.forEach(function(m){
+      if(["Suggested","Reached Out","First Date","Ongoing"].indexOf(m.status)!==-1) counts.active++;
+      if(m.status==="Engaged") counts.engaged++;
+      if(m.status==="Married") counts.married++;
+    });
+    var successRate = counts.total ? Math.round((counts.engaged+counts.married)/counts.total*100) : 0;
+    $("statsLog").innerHTML =
+      '<div class="stat"><div class="n">'+counts.total+'</div><div class="l">Total Suggestions</div></div>' +
+      '<div class="stat"><div class="n">'+counts.active+'</div><div class="l">Active</div></div>' +
+      '<div class="stat"><div class="n">'+counts.engaged+'</div><div class="l">Engaged</div></div>' +
+      '<div class="stat"><div class="n">'+counts.married+'</div><div class="l">Married</div></div>' +
+      '<div class="stat"><div class="n">'+successRate+'%</div><div class="l">Success Rate</div></div>';
+
+    if(search){ list = list.filter(function(m){ return norm(m.boy_name+m.girl_name).indexOf(search)!==-1; }); }
+    if(filter){ list = list.filter(function(m){ return m.status===filter; }); }
+
+    if(!list.length){
+      $("logList").innerHTML = '<div class="empty"><div class="display">No matches logged yet</div>Suggest a match from the Find a Match tab, or log one manually.</div>';
+      return;
+    }
+    $("logList").innerHTML = list.map(function(m){
+      var opts = MATCH_STATUSES.map(function(s){ return '<option '+(s===m.status?'selected':'')+'>'+s+'</option>'; }).join("");
+      return '' +
+        '<div class="log-row">' +
+          '<div class="log-names">'+esc(m.boy_name)+' &nbsp;&times;&nbsp; '+esc(m.girl_name)+
+            '<div class="log-meta">Suggested '+fmtDate(m.date_suggested)+' by '+esc(m.suggested_by||"—")+'</div></div>' +
+          '<select onchange="updateMatchStatus(\''+m.id+'\',this.value)">'+opts+'</select>' +
+          '<button class="btn small secondary" onclick="openMatchModal(\''+m.id+'\')">Edit</button>' +
+          '<button class="btn small danger" onclick="deleteMatch(\''+m.id+'\')">Delete</button>' +
+          (m.notes ? '<div class="log-notes">'+esc(m.notes)+'</div>' : '') +
+        '</div>';
+    }).join("");
+  }
+
+  function renderAll(){
+    $("countBoys").textContent = state.boys.length;
+    $("countGirls").textContent = state.girls.length;
+    $("countLog").textContent = state.matches.length;
+    renderList("boys");
+    renderList("girls");
+    renderFind();
+    renderLog();
+  }
+
+  // ---------- tabs ----------
+  document.querySelectorAll(".tab").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      document.querySelectorAll(".tab").forEach(function(b){ b.classList.remove("active"); });
+      document.querySelectorAll(".panel").forEach(function(p){ p.classList.remove("active"); });
+      btn.classList.add("active");
+      $("panel-"+btn.dataset.tab).classList.add("active");
+    });
+  });
+  window.jumpToFind = function(listName, personId){
+    var g = listName;
+    document.querySelectorAll(".tab").forEach(function(b){ b.classList.remove("active"); });
+    document.querySelectorAll(".panel").forEach(function(p){ p.classList.remove("active"); });
+    document.querySelector('.tab[data-tab="find"]').classList.add("active");
+    $("panel-find").classList.add("active");
+    document.querySelectorAll("#genderSeg button").forEach(function(b){ b.classList.toggle("active", b.dataset.g===g); });
+    renderFind();
+    $("personSelect").value = personId;
+    renderFind();
+  };
+  document.querySelectorAll("#genderSeg button").forEach(function(b){
+    b.addEventListener("click", function(){
+      document.querySelectorAll("#genderSeg button").forEach(function(x){ x.classList.remove("active"); });
+      b.classList.add("active");
+      renderFind();
+    });
+  });
+  $("personSelect").addEventListener("change", renderFind);
+  ["searchBoys","filterBoys"].forEach(function(id){ $(id).addEventListener("input", function(){ renderList("boys"); }); });
+  ["searchGirls","filterGirls"].forEach(function(id){ $(id).addEventListener("input", function(){ renderList("girls"); }); });
+  ["searchLog","filterLog"].forEach(function(id){ $(id).addEventListener("input", renderLog); });
+  $("filterLog").innerHTML = '<option value="">All statuses</option>' + MATCH_STATUSES.map(function(s){ return '<option>'+s+'</option>'; }).join("");
+
+  // ---------- person modal ----------
+  window.openPersonModal = function(listName, id){
+    editing.list = listName; editing.person = id || null;
+    var p = id ? state[listName].find(function(x){return x.id===id;}) : null;
+    $("personModalTitle").textContent = (id ? "Edit " : "Add a ") + (listName==="boys" ? "Boy" : "Girl");
+    $("p_name").value = p ? p.name||"" : "";
+    $("p_age").value = p ? p.age||"" : "";
+    $("p_status").value = p ? p.status||"Available" : "Available";
+    $("p_location").value = p ? p.location||"" : "";
+    $("p_wantLive").value = p ? p.want_live||"" : "";
+    $("p_learnPlan").value = p ? p.learn_plan||"" : "";
+    $("p_learnPlace").value = p ? p.learn_place||"" : "";
+    $("p_interests").value = p ? p.interests||"" : "";
+    $("p_resumeLink").value = p ? p.resume_link||"" : "";
+    $("p_motherPhone").value = p ? p.mother_phone||"" : "";
+    $("p_references").value = p ? p.character_references||"" : "";
+    $("p_notes").value = p ? p.notes||"" : "";
+    $("p_deleteBtn").style.display = id ? "inline-flex" : "none";
+    $("p_learnPlace").placeholder = listName==="boys" ? "e.g. Yeshiva name, city" : "e.g. Seminary / job, city";
+    $("p_learnPlan").placeholder = listName==="boys" ? "e.g. 3 years in kollel" : "e.g. prefers 2-3 years";
+    $("personOverlay").classList.add("open");
+  };
+  window.closePersonModal = function(){ $("personOverlay").classList.remove("open"); };
+  window.savePerson = function(){
+    var name = $("p_name").value.trim();
+    if(!name){ toast("Name is required"); return; }
+    var data = {
+      name: name,
+      age: $("p_age").value ? Number($("p_age").value) : null,
+      status: $("p_status").value,
+      location: $("p_location").value.trim(),
+      wantLive: $("p_wantLive").value.trim(),
+      learnPlan: $("p_learnPlan").value.trim(),
+      learnPlace: $("p_learnPlace").value.trim(),
+      interests: $("p_interests").value.trim(),
+      resumeLink: $("p_resumeLink").value.trim(),
+      motherPhone: $("p_motherPhone").value.trim(),
+      references: $("p_references").value.trim(),
+      notes: $("p_notes").value.trim()
+    };
+    var op = editing.person ? api.update(editing.list, editing.person, data) : api.add(editing.list, data);
+    op.then(function(){ toast(editing.person ? "Saved" : "Added"); closePersonModal(); refreshAll(); })
+      .catch(function(){ toast("Something went wrong saving — try again"); });
+  };
+  window.deleteCurrentPerson = function(){
+    if(!editing.person) return;
+    api.remove(editing.list, editing.person).then(function(){
+      toast("Deleted"); closePersonModal(); refreshAll();
+    }).catch(function(){ toast("Couldn't delete — try again"); });
+  };
+
+  // ---------- match modal ----------
+  window.openMatchModal = function(id){
+    editing.match = id || null;
+    var m = id ? state.matches.find(function(x){return x.id===id;}) : null;
+    var boySel = $("m_boy"), girlSel = $("m_girl"), statusSel = $("m_status");
+    boySel.innerHTML = state.boys.map(function(b){ return '<option value="'+b.id+'" data-name="'+esc(b.name)+'">'+esc(b.name)+'</option>'; }).join("");
+    girlSel.innerHTML = state.girls.map(function(g){ return '<option value="'+g.id+'" data-name="'+esc(g.name)+'">'+esc(g.name)+'</option>'; }).join("");
+    statusSel.innerHTML = MATCH_STATUSES.map(function(s){ return '<option>'+s+'</option>'; }).join("");
+    if(m){
+      boySel.value = m.boy_id; girlSel.value = m.girl_id; statusSel.value = m.status;
+      $("m_date").value = m.date_suggested || todayISO();
+      $("m_suggestedBy").value = m.suggested_by || "";
+      $("m_notes").value = m.notes || "";
+    } else {
+      $("m_date").value = todayISO();
+      $("m_suggestedBy").value = getUserName();
+      $("m_notes").value = "";
+      statusSel.value = "Suggested";
+    }
+    $("matchOverlay").classList.add("open");
+  };
+  window.closeMatchModal = function(){ $("matchOverlay").classList.remove("open"); };
+  window.saveMatch = function(){
+    var boySel = $("m_boy"), girlSel = $("m_girl");
+    if(!boySel.options.length || !girlSel.options.length){ toast("Add at least one boy and one girl first"); return; }
+    var data = {
+      boyId: boySel.value, boyName: boySel.selectedOptions[0].dataset.name,
+      girlId: girlSel.value, girlName: girlSel.selectedOptions[0].dataset.name,
+      status: $("m_status").value,
+      dateSuggested: $("m_date").value || todayISO(),
+      suggestedBy: $("m_suggestedBy").value.trim(),
+      notes: $("m_notes").value.trim()
+    };
+    var op = editing.match ? matchApi.update(editing.match, data) : matchApi.add(data);
+    op.then(function(){ toast(editing.match ? "Saved" : "Match logged"); closeMatchModal(); refreshAll(); })
+      .catch(function(){ toast("Something went wrong — try again"); });
+  };
+  window.updateMatchStatus = function(id, status){
+    var m = state.matches.find(function(x){return x.id===id;});
+    if(!m) return;
+    matchApi.update(id, { status: status, dateSuggested: m.date_suggested, suggestedBy: m.suggested_by, notes: m.notes })
+      .then(function(){ toast("Status updated"); refreshAll(); })
+      .catch(function(){ toast("Couldn't update — try again"); });
+  };
+  window.deleteMatch = function(id){
+    matchApi.remove(id).then(function(){ toast("Removed from log"); refreshAll(); })
+      .catch(function(){ toast("Couldn't delete — try again"); });
+  };
+  window.quickSuggest = function(boyId, boyName, girlId, girlName){
+    matchApi.add({
+      boyId: boyId, boyName: boyName, girlId: girlId, girlName: girlName,
+      status: "Suggested", dateSuggested: todayISO(), suggestedBy: getUserName(), notes: ""
+    }).then(function(){ toast("Suggested " + boyName + " × " + girlName); refreshAll(); })
+      .catch(function(){ toast("Couldn't log that suggestion — try again"); });
+  };
+
+  [ "personOverlay","matchOverlay" ].forEach(function(id){
+    $(id).addEventListener("click", function(e){ if(e.target.id===id) e.currentTarget.classList.remove("open"); });
+  });
+
+  // "logging as": prefer the Cloudflare Access-verified email, but let it be overridden
+  try{
+    var savedName = localStorage.getItem("shidduchLedgerUserName");
+    if(savedName) $("userName").value = savedName;
+  }catch(e){}
+  $("userName").addEventListener("input", function(){
+    try{ localStorage.setItem("shidduchLedgerUserName", $("userName").value); }catch(e){}
+  });
+  fetch("/api/whoami").then(function(r){ return r.ok ? r.json() : {}; }).then(function(d){
+    if(d && d.email && !$("userName").value) $("userName").value = d.email;
+  }).catch(function(){});
+
+  refreshAll();
+  setInterval(refreshAll, POLL_MS);
+})();
+</script>
+</body>
+</html>
