@@ -9,7 +9,7 @@ binding = "ASSETS"
 [[d1_databases]]
 binding = "DB"
 database_name = "shidduch-ledger-db"
-database_id = "b7c0fb62-eb26-425a-8a2f-21114cce40a7"
+database_id = "8489ab8f-2a18-4a74-8f00-5cd1c5dfb4fe"
 
 [[r2_buckets]]
 binding = "RESUMES"
