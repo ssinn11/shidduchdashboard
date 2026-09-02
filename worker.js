@@ -5,6 +5,7 @@
 // only works on classic Cloudflare Pages, not on this unified Workers setup.
 
 import { extractText, getDocumentProxy } from "unpdf";
+import { unzipSync, strFromU8 } from "fflate";
 
 export default {
   async fetch(request, env) {
@@ -61,11 +62,29 @@ async function handleApi(request, env, path) {
   const girlsMatch = path.match(/^\/api\/girls(?:\/([^/]+))?$/);
   if (girlsMatch) return handlePersonTable(env, "girls", girlsMatch[1], method, request);
 
+  const matchUpdatesAddMatch = path.match(/^\/api\/matches\/([^/]+)\/updates$/);
+  if (matchUpdatesAddMatch && method === "POST") {
+    return handleAddMatchUpdate(env, matchUpdatesAddMatch[1], request);
+  }
+
+  if (path === "/api/match-updates" && method === "GET") {
+    return handleListMatchUpdates(env);
+  }
+
+  const matchUpdateIdMatch = path.match(/^\/api\/match-updates\/([^/]+)$/);
+  if (matchUpdateIdMatch && method === "DELETE") {
+    return handleDeleteMatchUpdate(env, matchUpdateIdMatch[1]);
+  }
+
   const matchesMatch = path.match(/^\/api\/matches(?:\/([^/]+))?$/);
   if (matchesMatch) return handleMatches(env, matchesMatch[1], method, request);
 
   if (path === "/api/resume" && method === "POST") {
     return handleResumeUpload(env, request);
+  }
+
+  if (path === "/api/resume-text" && method === "POST") {
+    return handleResumeTextExtract(env, request);
   }
 
   if (path === "/api/photo" && method === "POST") {
@@ -147,6 +166,12 @@ async function handleMatches(env, id, method, request) {
     )
       .bind(newId, body.boyId, body.boyName || "", body.girlId, body.girlName || "", body.status || "Suggested", body.dateSuggested || now.slice(0, 10), body.suggestedBy || "", body.notes || "", now, now)
       .run();
+    // Seed the first entry in the status-update timeline so it starts here.
+    await env.DB.prepare(
+      `INSERT INTO match_updates (id, match_id, status, date, note, created_at) VALUES (?,?,?,?,?,?)`
+    )
+      .bind(crypto.randomUUID(), newId, body.status || "Suggested", body.dateSuggested || now.slice(0, 10), body.notes || "", now)
+      .run();
     return Response.json({ id: newId });
   }
 
@@ -163,10 +188,67 @@ async function handleMatches(env, id, method, request) {
 
   if (method === "DELETE" && id) {
     await env.DB.prepare("DELETE FROM matches WHERE id=?").bind(id).run();
+    await env.DB.prepare("DELETE FROM match_updates WHERE match_id=?").bind(id).run();
     return Response.json({ ok: true });
   }
 
   return new Response("Method not allowed", { status: 405 });
+}
+
+// ---------- match status-update history ----------
+
+async function handleAddMatchUpdate(env, matchId, request) {
+  const body = await request.json();
+  if (!body.status) return new Response("status is required", { status: 400 });
+  const newId = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const date = body.date || now.slice(0, 10);
+  await env.DB.prepare(
+    `INSERT INTO match_updates (id, match_id, status, date, note, created_at) VALUES (?,?,?,?,?,?)`
+  )
+    .bind(newId, matchId, body.status, date, body.note || "", now)
+    .run();
+
+  // Keep the match's own "current status" in sync with whichever logged
+  // update is chronologically most recent (by date, then by when it was
+  // entered) — not necessarily the one that was just added, in case
+  // updates are logged out of order.
+  const latest = await env.DB.prepare(
+    `SELECT status FROM match_updates WHERE match_id=? ORDER BY date DESC, created_at DESC LIMIT 1`
+  )
+    .bind(matchId)
+    .first();
+  if (latest) {
+    await env.DB.prepare(`UPDATE matches SET status=?, updated_at=? WHERE id=?`)
+      .bind(latest.status, now, matchId)
+      .run();
+  }
+  return Response.json({ id: newId });
+}
+
+async function handleListMatchUpdates(env) {
+  const { results } = await env.DB.prepare(
+    "SELECT * FROM match_updates ORDER BY date DESC, created_at DESC"
+  ).all();
+  return Response.json(results);
+}
+
+async function handleDeleteMatchUpdate(env, id) {
+  const row = await env.DB.prepare("SELECT match_id FROM match_updates WHERE id=?").bind(id).first();
+  await env.DB.prepare("DELETE FROM match_updates WHERE id=?").bind(id).run();
+  if (row) {
+    const latest = await env.DB.prepare(
+      `SELECT status FROM match_updates WHERE match_id=? ORDER BY date DESC, created_at DESC LIMIT 1`
+    )
+      .bind(row.match_id)
+      .first();
+    if (latest) {
+      await env.DB.prepare(`UPDATE matches SET status=?, updated_at=? WHERE id=?`)
+        .bind(latest.status, new Date().toISOString(), row.match_id)
+        .run();
+    }
+  }
+  return Response.json({ ok: true });
 }
 
 // ---------- resume upload + AI extraction ----------
@@ -177,32 +259,50 @@ async function handleMatches(env, id, method, request) {
 // Stores the PDF in R2, asks Claude to read it and pull out profile fields,
 // and returns both the file reference and whatever Claude found so the
 // frontend can pre-fill the form for a human to review before saving.
+const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+function resumeKindFromFile(file) {
+  const name = (file.name || "").toLowerCase();
+  if (name.endsWith(".docx") || file.type === DOCX_MIME) return "docx";
+  if (name.endsWith(".doc") || file.type === "application/msword") return "doc";
+  if (name.endsWith(".pdf") || file.type === "application/pdf") return "pdf";
+  return null;
+}
+
 async function handleResumeUpload(env, request) {
   const form = await request.formData();
   const file = form.get("file");
   const table = form.get("table") === "girls" ? "girls" : "boys";
 
   if (!file || typeof file.arrayBuffer !== "function") {
-    return new Response("A PDF file is required", { status: 400 });
+    return new Response("A PDF or Word (.docx) file is required", { status: 400 });
   }
-  if (file.type && file.type !== "application/pdf") {
-    return new Response("Only PDF files are supported", { status: 400 });
+  const kind = resumeKindFromFile(file);
+  if (kind === "doc") {
+    return new Response(
+      "That's an older .doc file, which isn't supported — please re-save it as .docx (or a PDF) and upload that instead.",
+      { status: 400 }
+    );
+  }
+  if (kind !== "pdf" && kind !== "docx") {
+    return new Response("Only PDF or Word (.docx) files are supported", { status: 400 });
   }
 
   const bytes = await file.arrayBuffer();
   const MAX_BYTES = 15 * 1024 * 1024; // keep well under Worker + Claude limits
   if (bytes.byteLength > MAX_BYTES) {
-    return new Response("That PDF is too large (15MB max)", { status: 400 });
+    return new Response("That file is too large (15MB max)", { status: 400 });
   }
 
-  const key = `${table}/${crypto.randomUUID()}.pdf`;
-  await env.RESUMES.put(key, bytes, { httpMetadata: { contentType: "application/pdf" } });
+  const contentType = kind === "docx" ? DOCX_MIME : "application/pdf";
+  const key = `${table}/${crypto.randomUUID()}.${kind}`;
+  await env.RESUMES.put(key, bytes, { httpMetadata: { contentType } });
 
-  const fileName = (file.name || "resume.pdf").toString();
+  const fileName = (file.name || (kind === "docx" ? "resume.docx" : "resume.pdf")).toString();
   const result = { key, name: fileName, extracted: null, extractError: null };
 
   try {
-    result.extracted = await extractResumeWithWorkersAI(env, bytes, table);
+    result.extracted = await extractResumeWithWorkersAI(env, bytes, table, kind);
   } catch (err) {
     result.extractError = "Couldn't read the resume automatically: " + err.message + ". The file was still saved — fill in the fields by hand.";
   }
@@ -210,25 +310,98 @@ async function handleResumeUpload(env, request) {
   return Response.json(result);
 }
 
+// Same AI extraction as the file-upload path, but for text pasted directly
+// into the app (an email, a WhatsApp message, whatever a resume arrived
+// as) instead of an uploaded file — nothing gets saved to R2 here, there's
+// just no file involved.
+async function handleResumeTextExtract(env, request) {
+  const body = await request.json();
+  const table = body.table === "girls" ? "girls" : "boys";
+  const text = (body.text || "").toString().trim();
+
+  if (text.length < 20) {
+    return new Response("Paste in a bit more text — that's not enough to work with", { status: 400 });
+  }
+
+  try {
+    const extracted = await runResumeExtractionAI(env, text, table);
+    return Response.json({ extracted });
+  } catch (err) {
+    return new Response("Couldn't read that text automatically: " + err.message, { status: 500 });
+  }
+}
+
+// Pulls the raw text out of a .docx file (a zip archive containing an XML
+// document at word/document.xml). No dependency on Word or any Node-only
+// APIs — just unzips the bytes and strips the XML tags, which is enough to
+// get readable text out for the AI step below. Older, binary .doc files
+// are a completely different (and much harder to parse) format, so those
+// are rejected earlier in handleResumeUpload rather than attempted here.
+function extractDocxText(bytes) {
+  let zip;
+  try {
+    zip = unzipSync(new Uint8Array(bytes));
+  } catch (err) {
+    throw new Error("couldn't open this Word file (" + err.message + ")");
+  }
+  const xmlBytes = zip["word/document.xml"];
+  if (!xmlBytes) throw new Error("couldn't find any document content inside this Word file");
+  const xml = strFromU8(xmlBytes);
+
+  let text = xml
+    .replace(/<w:tab\/>/g, "\t")
+    .replace(/<\/w:p>/g, "\n")
+    .replace(/<\/w:tr>/g, "\n")
+    .replace(/<[^>]+>/g, "");
+  text = text
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
+  return text.trim();
+}
+
 // Uses Cloudflare Workers AI (included free with your Cloudflare account,
 // up to 10,000 neurons/day) instead of a paid third-party API. Text is
-// pulled out of the PDF locally with `unpdf`, then a small instruct model
-// is asked to fill in a fixed JSON shape from that text. This only works
-// for PDFs that have real selectable text — a resume that's actually a
-// scanned image of a paper document won't have any text to extract.
-async function extractResumeWithWorkersAI(env, pdfBytes, table) {
+// pulled out of the file locally (with `unpdf` for PDFs, or a small zip/XML
+// unwrap for Word .docx files), then a small instruct model is asked to
+// fill in a fixed JSON shape from that text. This only works for files that
+// have real extractable text — a resume that's actually a scanned image of
+// a paper document won't have any text to extract.
+async function extractResumeWithWorkersAI(env, fileBytes, table, kind) {
   let text;
-  try {
-    const doc = await getDocumentProxy(new Uint8Array(pdfBytes));
-    const extracted = await extractText(doc, { mergePages: true });
-    text = (extracted.text || "").trim();
-  } catch (err) {
-    throw new Error("couldn't read this PDF's text (" + err.message + ")");
+  if (kind === "docx") {
+    try {
+      text = extractDocxText(fileBytes);
+    } catch (err) {
+      throw new Error(err.message);
+    }
+  } else {
+    try {
+      const doc = await getDocumentProxy(new Uint8Array(fileBytes));
+      const extracted = await extractText(doc, { mergePages: true });
+      text = (extracted.text || "").trim();
+    } catch (err) {
+      throw new Error("couldn't read this PDF's text (" + err.message + ")");
+    }
   }
 
   if (text.length < 20) {
-    throw new Error("this PDF doesn't have selectable text (it may be a scanned image) — AI can't read it automatically");
+    throw new Error(
+      kind === "docx"
+        ? "this Word file doesn't seem to have any readable text in it"
+        : "this PDF doesn't have selectable text (it may be a scanned image) — AI can't read it automatically"
+    );
   }
+
+  return runResumeExtractionAI(env, text, table);
+}
+
+// Shared by the file-upload path above and the paste-text path (handleResumeTextExtract)
+// below — everything from here on just needs a plain string of resume text,
+// regardless of where it came from.
+async function runResumeExtractionAI(env, text, table) {
   if (text.length > 12000) text = text.slice(0, 12000); // keep the request small
 
   const learnLabel = table === "girls" ? "seminary" : "yeshiva / where they learn";
@@ -258,7 +431,8 @@ async function extractResumeWithWorkersAI(env, pdfBytes, table) {
     ],
   };
 
-  const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
+  const result = await withTimeout(
+    env.AI.run("@cf/meta/llama-3.1-8b-instruct-fast", {
     messages: [
       {
         role: "system",
@@ -288,13 +462,17 @@ async function extractResumeWithWorkersAI(env, pdfBytes, table) {
       },
     ],
     response_format: { type: "json_schema", json_schema: schema },
-  });
+    max_tokens: 1536,
+    }),
+    25000,
+    "the AI took too long to respond"
+  );
 
   let parsed = result && result.response;
   if (typeof parsed === "string") {
-    try { parsed = JSON.parse(parsed); } catch (e) { throw new Error("AI returned an unexpected format"); }
+    parsed = parseAiJson(parsed);
   }
-  if (!parsed || typeof parsed !== "object") throw new Error("AI returned no data");
+  if (!parsed || typeof parsed !== "object") throw new Error("AI returned an unexpected format");
 
   return {
     name: parsed.name || "",
@@ -314,6 +492,47 @@ async function extractResumeWithWorkersAI(env, pdfBytes, table) {
     references: parsed.references || "",
     notes: parsed.notes || "",
   };
+}
+
+// Workers AI's JSON mode is best-effort, not guaranteed — some models wrap
+// the JSON in a markdown code fence, or add a stray sentence before/after
+// it. Try a few increasingly forgiving strategies before giving up.
+// Guards against a slow/stuck Workers AI call holding the whole request
+// open until the platform itself kills the connection (which shows up to
+// the browser as a raw, ugly network error instead of a clean response).
+// If the AI hasn't answered within `ms`, give up on it ourselves and let
+// the caller fall back to "fill in by hand" instead.
+function withTimeout(promise, ms, message) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+function parseAiJson(raw) {
+  let text = String(raw).trim();
+
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced) text = fenced[1].trim();
+
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    // fall through to the more forgiving strategy below
+  }
+
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start !== -1 && end !== -1 && end > start) {
+    try {
+      return JSON.parse(text.slice(start, end + 1));
+    } catch (e) {
+      // give up below
+    }
+  }
+
+  return null;
 }
 
 async function handleFileServe(env, key) {

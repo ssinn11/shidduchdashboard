@@ -1,12 +1,13 @@
 # Shidduch Ledger — Cloudflare Workers + D1 + R2 + Access
 
-A private, shared prospect tracker: profiles for boys and girls in a
-spreadsheet-style table, ranked match suggestions, a match log with
-outcomes, and PDF resume uploads that Cloudflare's built-in AI reads
-automatically to fill in the profile fields for you to review — plus a
-separate photo upload, since pictures often come as their own attachment.
-You own the code and the data; only the email addresses you choose can
-ever open it.
+A private, shared prospect tracker: a Dashboard overview of what's active
+right now, profiles for boys and girls in a spreadsheet-style table, ranked
+match suggestions, a match log where every status change is a dated,
+timestamped update instead of just overwriting the last one, and PDF resume
+uploads that Cloudflare's built-in AI reads automatically to fill in the
+profile fields for you to review — plus a separate photo upload, since
+pictures often come as their own attachment. You own the code and the
+data; only the email addresses you choose can ever open it.
 
 ## What's in here
 
@@ -15,9 +16,10 @@ ever open it.
   and R2, and running the resume text through Workers AI), and serves
   everything else as static files from `public/`.
 - `schema.sql` — the database tables (run this once against your D1
-  database; a "Migration 2" section near the bottom adds the resume-file
-  columns, and "Migration 3" adds the richer resume fields plus the photo
-  columns — see step 2 below).
+  database; "Migration 2" adds the resume-file columns, "Migration 3" adds
+  the richer resume fields plus the photo columns, and "Migration 4" adds
+  the `match_updates` table that powers the dated status timeline — see
+  step 2 below).
 - `wrangler.toml` — tells Cloudflare how to wire this all together: which
   file is the entry point, where the static files live, which D1 database
   to attach as `env.DB`, which R2 bucket to attach as `env.RESUMES`, and
@@ -45,11 +47,10 @@ Open its **Console** tab and run each statement from `schema.sql` — paste
 and execute them one at a time if the console is a single-line box rather
 than a multi-line editor.
 
-If you already had this database set up before resumes/PDFs were added,
-you only need to run the new lines under "Migration 2" and/or "Migration 3"
-at the bottom of `schema.sql` (the `ALTER TABLE ... ADD COLUMN` ones) — the
-earlier tables are already there. Run each line one at a time if the
-console is a single-line box.
+If you already had this database set up before, you only need to run the
+new lines under whichever "Migration N" sections you haven't run yet, at
+the bottom of `schema.sql` — the earlier tables are already there. Run
+each line one at a time if the console is a single-line box.
 
 Copy the database's ID (shown on its Overview page) into `wrangler.toml`
 where it says `database_id`.
@@ -146,12 +147,28 @@ every push — no separate "publish" step.
 - Boys and Girls each show as a spreadsheet-style table — click any row to
   open the full edit form (nothing saves until you click Save in that
   form, so browsing the table is safe).
-- Uploading a PDF resume stores the actual file (in R2) and asks Cloudflare
-  Workers AI to read it and pre-fill the form fields. Always double-check
-  what it filled in before saving — it's a head start, not a guarantee,
-  and it's instructed never to invent information that isn't in the PDF.
-  You can also skip the upload and just paste a Google Drive/Dropbox link
-  in the field below it, or use both.
+- Uploading a resume (PDF or Word **.docx**) stores the actual file (in R2)
+  and asks Cloudflare Workers AI to read it and pre-fill the form fields.
+  Always double-check what it filled in before saving — it's a head start,
+  not a guarantee, and it's instructed never to invent information that
+  isn't in the file. Older **.doc** files (the pre-2007 Word format) aren't
+  supported — re-save as .docx or PDF first. You can also skip the upload
+  and just paste a Google Drive/Dropbox link in the field below it, or use
+  both.
+- Don't have a file at all — just an email or WhatsApp message with someone's
+  info in it? Paste that text into the **Or Paste Resume Text** box (right
+  under the file upload) and click **Extract with AI**. It runs through the
+  same AI extraction as an uploaded file and fills in the same fields —
+  nothing gets saved as a file, since there isn't one; it's just a faster
+  way in when the information didn't arrive as a PDF or Word doc.
+- **Age is calculated automatically from Date of Birth** whenever that
+  field has a recognizable date in it (it accepts most everyday formats —
+  "March 4, 2001", "3/4/2001", "2001-03-04", etc.). When that's the case,
+  the Age field greys out and shows "(from date of birth)" — it's kept in
+  sync everywhere the person's age is shown, including as of today, not
+  just whatever it was when the profile was saved. If Date of Birth is
+  blank or isn't a date the app recognizes, Age goes back to being a
+  regular field you fill in by hand.
 - Photos are a separate upload from the resume, since they often come as
   their own attachment. Use the "Upload Photo" button in the form (accepts
   JPG, PNG, WEBP, or HEIC, up to 10MB) — it just stores the image, no AI
@@ -169,3 +186,28 @@ every push — no separate "publish" step.
   learning-plan years (20 pts), shared interests (up to 20 pts), and
   learning/working in a similar area (15 pts). It's meant to narrow the
   field, not replace judgment — every score comes with the reasons behind it.
+- The **Dashboard** tab is the at-a-glance view: total active matches,
+  engaged/married counts, how many boys and girls are currently marked
+  Available, a list of everything currently in progress, and a separate
+  list of engagements and marriages. The Boys and Girls tables also each
+  have a **Current Match** column showing the same thing for that person
+  specifically (their most recently updated match and its status), so you
+  don't have to jump to the Match Log to see what's going on with someone.
+- In the **Match Log** (and on the Dashboard), a match's status is no
+  longer just overwritten when it changes. Click **+ Add Update** on any
+  match to log a new status with a date and an optional note — every
+  update you've logged stays visible underneath that match as a timeline
+  (e.g. Suggested → First Date, 3/1 → Ongoing, 3/12, "went really well").
+  The match's status pill always reflects whichever logged update is most
+  recent by date. You can delete a single mistaken update with the ✕ next
+  to it, which recalculates the current status from what's left. The
+  **Edit** button on a match is still there for fixing the boy/girl, who
+  suggested it, or the original date/notes — status itself is only changed
+  through Add Update once a match exists, so the timeline stays accurate.
+- To **archive** someone instead of deleting them, set their Status to
+  **Archived** (in the same dropdown as Available/Dating/etc., on their
+  profile form or in the table's status filter). Archived profiles stay in
+  the Boys/Girls tables (filter by "Archived" to see just them) and keep
+  all their data, but they're automatically left out of Find a Match
+  suggestions in both directions. To bring someone back, just change their
+  status back to whatever it should be.

@@ -86,3 +86,18 @@ ALTER TABLE girls ADD COLUMN shul_info TEXT;
 ALTER TABLE girls ADD COLUMN family_references TEXT;
 ALTER TABLE girls ADD COLUMN photo_file_key TEXT;
 ALTER TABLE girls ADD COLUMN photo_file_name TEXT;
+
+-- Migration 4 — dated status-update history for matches. Instead of a
+-- match's status just being overwritten, each change is logged as its own
+-- row with a date and an optional note, so you can see the whole story
+-- (Suggested -> First Date -> Ongoing -> ...) instead of just the latest
+-- state. Run this once via the D1 Console.
+CREATE TABLE IF NOT EXISTS match_updates (
+  id TEXT PRIMARY KEY,
+  match_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  date TEXT NOT NULL,
+  note TEXT,
+  created_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_match_updates_match ON match_updates(match_id);

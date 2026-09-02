@@ -33,6 +33,8 @@
     --st-married-bg:#ece4f3;
     --st-declined:#a5453b;
     --st-declined-bg:#f4e1de;
+    --st-archived:#6b6b6b;
+    --st-archived-bg:#e9e6e2;
     --shadow: 0 1px 2px rgba(42,28,38,.06), 0 4px 16px rgba(42,28,38,.06);
     --radius: 14px;
   }
@@ -43,7 +45,7 @@
       --gold:#d9ab5c; --gold-soft:#3a2f1f; --st-available:#6fcb9c; --st-available-bg:#1f3329;
       --st-dating:#7fb4e8; --st-dating-bg:#1f2c3a; --st-onhold:#b7a1ac; --st-onhold-bg:#2c2229;
       --st-engaged:#d9ab5c; --st-engaged-bg:#3a2f1f; --st-married:#c0a3e6; --st-married-bg:#2c2338;
-      --st-declined:#e0897c; --st-declined-bg:#3a2320; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 20px rgba(0,0,0,.35);
+      --st-declined:#e0897c; --st-declined-bg:#3a2320; --st-archived:#a3a3a3; --st-archived-bg:#2b2b2b; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 20px rgba(0,0,0,.35);
     }
   }
   *{box-sizing:border-box;}
@@ -109,6 +111,9 @@
   .pill.st-married{background:var(--st-married-bg);color:var(--st-married);}
   .pill.st-suggested{background:var(--st-dating-bg);color:var(--st-dating);}
   .pill.st-declined{background:var(--st-declined-bg);color:var(--st-declined);}
+  .pill.st-archived{background:var(--st-archived-bg);color:var(--st-archived);}
+  .current-match-cell{display:flex;flex-direction:column;gap:2px;align-items:flex-start;}
+  .current-match-cell .with{font-size:11px;color:var(--muted);}
   .empty{text-align:center;padding:50px 20px;color:var(--muted);border:1.5px dashed var(--border);border-radius:var(--radius);}
   .empty .display{font-size:19px;color:var(--ink-soft);margin-bottom:6px;}
   .match-controls{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;margin-bottom:20px;box-shadow:var(--shadow);}
@@ -134,6 +139,12 @@
   .log-names{font-family:'Fraunces',serif;font-size:16px;font-weight:600;flex:1;min-width:180px;}
   .log-meta{font-size:12px;color:var(--muted);}
   .log-notes{width:100%;margin-top:4px;font-size:13px;color:var(--ink-soft);background:var(--surface-2);border-radius:8px;padding:8px 10px;}
+  .mu-list{width:100%;margin-top:8px;display:flex;flex-direction:column;gap:6px;}
+  .mu-item{display:flex;gap:9px;align-items:baseline;flex-wrap:wrap;font-size:12.5px;color:var(--ink-soft);background:var(--surface-2);border-radius:8px;padding:6px 10px;}
+  .mu-date{color:var(--muted);font-weight:700;white-space:nowrap;font-size:11.5px;text-transform:uppercase;letter-spacing:.3px;}
+  .mu-note{flex:1;min-width:120px;}
+  .mu-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 2px;line-height:1;}
+  .mu-del:hover{color:var(--st-declined);}
   .overlay{position:fixed;inset:0;background:rgba(20,10,15,.45);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;z-index:50;}
   .overlay.open{display:flex;}
   .modal{background:var(--surface);border-radius:16px;padding:26px 26px 22px;max-width:560px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);border:1px solid var(--border);}
@@ -172,19 +183,28 @@
   <div id="modeBanner"></div>
 
   <div class="tabs">
-    <button class="tab active" data-tab="boys">Boys <span class="badge-count" id="countBoys">0</span></button>
+    <button class="tab active" data-tab="dashboard">Dashboard</button>
+    <button class="tab" data-tab="boys">Boys <span class="badge-count" id="countBoys">0</span></button>
     <button class="tab" data-tab="girls">Girls <span class="badge-count" id="countGirls">0</span></button>
     <button class="tab" data-tab="find">Find a Match</button>
     <button class="tab" data-tab="log">Match Log <span class="badge-count" id="countLog">0</span></button>
   </div>
 
-  <div class="panel active" id="panel-boys">
+  <div class="panel active" id="panel-dashboard">
+    <div class="stats" id="statsDashboard"></div>
+    <div class="section-label" style="margin-top:0;">Active Pipeline</div>
+    <div id="dashboardActive"></div>
+    <div class="section-label">Engagements &amp; Marriages</div>
+    <div id="dashboardMilestones"></div>
+  </div>
+
+  <div class="panel" id="panel-boys">
     <div class="stats" id="statsBoys"></div>
     <div class="toolbar">
       <input type="search" id="searchBoys" placeholder="Search boys by name, location, interests…" />
       <select id="filterBoys">
         <option value="">All statuses</option>
-        <option>Available</option><option>Dating</option><option>On Hold</option><option>Engaged</option><option>Married</option>
+        <option>Available</option><option>Dating</option><option>On Hold</option><option>Engaged</option><option>Married</option><option>Archived</option>
       </select>
       <div class="spacer"></div>
       <button class="btn" onclick="openPersonModal('boys')">+ Add a Boy</button>
@@ -192,7 +212,7 @@
     <div class="table-wrap">
       <table class="ptable">
         <thead><tr>
-          <th>Name</th><th>Age</th><th>Status</th><th>Location</th><th>Wants to Live</th>
+          <th>Name</th><th>Age</th><th>Status</th><th>Current Match</th><th>Location</th><th>Wants to Live</th>
           <th>Learning Plan</th><th>Learns At</th><th>Interests</th><th>Mother's Phone</th><th>Resume</th><th></th>
         </tr></thead>
         <tbody id="listBoys"></tbody>
@@ -206,7 +226,7 @@
       <input type="search" id="searchGirls" placeholder="Search girls by name, location, interests…" />
       <select id="filterGirls">
         <option value="">All statuses</option>
-        <option>Available</option><option>Dating</option><option>On Hold</option><option>Engaged</option><option>Married</option>
+        <option>Available</option><option>Dating</option><option>On Hold</option><option>Engaged</option><option>Married</option><option>Archived</option>
       </select>
       <div class="spacer"></div>
       <button class="btn" onclick="openPersonModal('girls')">+ Add a Girl</button>
@@ -214,7 +234,7 @@
     <div class="table-wrap">
       <table class="ptable">
         <thead><tr>
-          <th>Name</th><th>Age</th><th>Status</th><th>Location</th><th>Wants to Live</th>
+          <th>Name</th><th>Age</th><th>Status</th><th>Current Match</th><th>Location</th><th>Wants to Live</th>
           <th>Learning Plan</th><th>Seminary</th><th>Interests</th><th>Mother's Phone</th><th>Resume</th><th></th>
         </tr></thead>
         <tbody id="listGirls"></tbody>
@@ -256,10 +276,10 @@
     <h2 id="personModalTitle">Add a Boy</h2>
     <div class="form-grid">
       <div class="field full"><label>Full Name *</label><input type="text" id="p_name" /></div>
-      <div class="field"><label>Age</label><input type="number" id="p_age" min="17" max="99" /></div>
+      <div class="field"><label>Age <span id="p_ageAuto" style="text-transform:none;font-weight:400;color:var(--muted);"></span></label><input type="number" id="p_age" min="17" max="99" /></div>
       <div class="field"><label>Status</label>
         <select id="p_status">
-          <option>Available</option><option>Dating</option><option>On Hold</option><option>Engaged</option><option>Married</option>
+          <option>Available</option><option>Dating</option><option>On Hold</option><option>Engaged</option><option>Married</option><option>Archived</option>
         </select>
       </div>
       <div class="field"><label>Date of Birth</label><input type="text" id="p_dob" placeholder="e.g. February 28, 2005" /></div>
@@ -279,13 +299,21 @@
         <div id="p_photoCurrent" style="margin-top:8px;"></div>
       </div>
       <div class="field full">
-        <label>Resume (PDF upload)</label>
-        <input type="file" id="p_resumeFile" accept="application/pdf" />
+        <label>Resume (PDF or Word upload)</label>
+        <input type="file" id="p_resumeFile" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
         <div style="display:flex;gap:8px;align-items:center;margin-top:7px;flex-wrap:wrap;">
           <button type="button" class="btn small secondary" onclick="uploadResume()">Upload &amp; Extract with AI</button>
           <span id="p_resumeStatus" style="font-size:12.5px;color:var(--muted);"></span>
         </div>
         <div id="p_resumeCurrent" style="margin-top:6px;font-size:12.5px;"></div>
+      </div>
+      <div class="field full">
+        <label>Or Paste Resume Text</label>
+        <textarea id="p_resumeText" placeholder="Paste resume text here — from an email, a WhatsApp message, wherever it came from — then click Extract with AI" style="min-height:90px;"></textarea>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:7px;flex-wrap:wrap;">
+          <button type="button" class="btn small secondary" onclick="extractFromPastedText()">Extract with AI</button>
+          <span id="p_pasteStatus" style="font-size:12.5px;color:var(--muted);"></span>
+        </div>
       </div>
       <div class="field full"><label>Resume (or paste a link instead)</label><input type="text" id="p_resumeLink" placeholder="Paste a Google Drive / Dropbox link to their resume PDF" /></div>
       <div class="field full"><label>Mother's Phone Number</label><input type="tel" id="p_motherPhone" placeholder="(555) 555-5555" /></div>
@@ -311,7 +339,7 @@
     <div class="form-grid">
       <div class="field"><label>Boy</label><select id="m_boy"></select></div>
       <div class="field"><label>Girl</label><select id="m_girl"></select></div>
-      <div class="field"><label>Status</label><select id="m_status"></select></div>
+      <div class="field" id="m_statusField"><label>Status</label><select id="m_status"></select></div>
       <div class="field"><label>Date Suggested</label><input type="date" id="m_date" /></div>
       <div class="field full"><label>Suggested By</label><input type="text" id="m_suggestedBy" /></div>
       <div class="field full"><label>Notes</label><textarea id="m_notes"></textarea></div>
@@ -319,6 +347,21 @@
     <div class="modal-actions">
       <button class="btn secondary" onclick="closeMatchModal()">Cancel</button>
       <button class="btn" onclick="saveMatch()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="updateOverlay">
+  <div class="modal">
+    <h2>Add an Update</h2>
+    <div class="form-grid">
+      <div class="field"><label>New Status</label><select id="u_status"></select></div>
+      <div class="field"><label>Date</label><input type="date" id="u_date" /></div>
+      <div class="field full"><label>Note</label><textarea id="u_note" placeholder="What happened? (optional)"></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn secondary" onclick="closeUpdateModal()">Cancel</button>
+      <button class="btn" onclick="saveMatchUpdate()">Save Update</button>
     </div>
   </div>
 </div>
@@ -332,12 +375,13 @@
   var MATCH_STATUSES = ["Suggested","Reached Out","First Date","Ongoing","On Hold","Declined","Engaged","Married","Ended"];
   var STATUS_CLASS = {
     "Available":"st-available","Dating":"st-dating","On Hold":"st-onhold","Engaged":"st-engaged","Married":"st-married",
+    "Archived":"st-archived",
     "Suggested":"st-suggested","Reached Out":"st-suggested","First Date":"st-dating","Ongoing":"st-dating",
     "Declined":"st-declined","Ended":"st-declined"
   };
 
-  var state = { boys: [], girls: [], matches: [] };
-  var editing = { person: null, list: null, match: null, resumeFileKey: null, resumeFileName: null, photoFileKey: null, photoFileName: null };
+  var state = { boys: [], girls: [], matches: [], matchUpdates: [] };
+  var editing = { person: null, list: null, match: null, resumeFileKey: null, resumeFileName: null, photoFileKey: null, photoFileName: null, updateMatchId: null };
   var POLL_MS = 20000;
 
   function $(id){ return document.getElementById(id); }
@@ -358,6 +402,32 @@
     var d = new Date(iso + "T00:00:00");
     if(isNaN(d)) return iso;
     return d.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
+  }
+  // Date of birth is stored as free text (resumes phrase it every which
+  // way), so this leans on the JS Date parser and sanity-bounds the result
+  // rather than requiring one strict format.
+  function parseDob(s){
+    if(!s) return null;
+    var str = String(s).trim();
+    if(!str) return null;
+    var d = new Date(str);
+    if(isNaN(d.getTime())) return null;
+    var now = new Date();
+    if(d.getTime() > now.getTime()) return null;
+    if(d.getFullYear() < now.getFullYear() - 120) return null;
+    return d;
+  }
+  function ageFromDob(d){
+    var now = new Date();
+    var age = now.getFullYear() - d.getFullYear();
+    var m = now.getMonth() - d.getMonth();
+    if(m < 0 || (m===0 && now.getDate() < d.getDate())) age--;
+    return age;
+  }
+  function computeAge(dobString, fallback){
+    var d = parseDob(dobString);
+    if(d) return ageFromDob(d);
+    return (fallback!=null && fallback!=="") ? Number(fallback) : null;
   }
   function toast(msg){
     var t = $("toast"); t.textContent = msg; t.classList.add("show");
@@ -445,6 +515,20 @@
     return found[0] || null;
   }
 
+  function currentMatchFor(personId){
+    var involved = state.matches.filter(function(m){ return m.boy_id===personId || m.girl_id===personId; });
+    if(!involved.length) return null;
+    involved.sort(function(a,b){ return (b.updated_at||"").localeCompare(a.updated_at||""); });
+    return involved[0];
+  }
+
+  function updatesFor(matchId){
+    return state.matchUpdates.filter(function(u){ return u.match_id===matchId; }).sort(function(a,b){
+      if(a.date !== b.date) return b.date < a.date ? -1 : 1;
+      return (b.created_at||"").localeCompare(a.created_at||"");
+    });
+  }
+
   // ---------- data layer: fetch-based API backed by D1 ----------
   function toWire(data){
     return {
@@ -485,15 +569,25 @@
     remove: function(id){ return fetch("/api/matches/"+id, { method:"DELETE" })
       .then(function(r){ if(!r.ok) throw new Error("delete match failed"); return r.json(); }); }
   };
+  var matchUpdateApi = {
+    list: function(){ return fetch("/api/match-updates").then(function(r){
+      if(!r.ok) throw new Error("match updates fetch failed"); return r.json();
+    }); },
+    add: function(matchId, data){ return fetch("/api/matches/"+matchId+"/updates", {
+      method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(data)
+    }).then(function(r){ if(!r.ok) throw new Error("add update failed"); return r.json(); }); },
+    remove: function(id){ return fetch("/api/match-updates/"+id, { method:"DELETE" })
+      .then(function(r){ if(!r.ok) throw new Error("delete update failed"); return r.json(); }); }
+  };
 
   function showBanner(msg, isError){
     $("modeBanner").innerHTML = msg ? '<div class="banner'+(isError?' error':'')+'">'+msg+'</div>' : "";
   }
 
   function refreshAll(){
-    return Promise.all([ api.list("boys"), api.list("girls"), matchApi.list() ])
+    return Promise.all([ api.list("boys"), api.list("girls"), matchApi.list(), matchUpdateApi.list() ])
       .then(function(res){
-        state.boys = res[0]; state.girls = res[1]; state.matches = res[2];
+        state.boys = res[0]; state.girls = res[1]; state.matches = res[2]; state.matchUpdates = res[3];
         showBanner("");
         renderAll();
       })
@@ -513,13 +607,21 @@
     return links.length ? links.join(" &middot; ") : '<span class="cell-empty">—</span>';
   }
 
+  function currentMatchCell(p, listName){
+    var m = currentMatchFor(p.id);
+    if(!m) return '<span class="cell-empty">—</span>';
+    var otherName = listName==="boys" ? m.girl_name : m.boy_name;
+    return '<div class="current-match-cell"><span class="pill '+(STATUS_CLASS[m.status]||'st-suggested')+'">'+esc(m.status)+'</span><span class="with">with '+esc(otherName)+'</span></div>';
+  }
+
   function personRow(p, listName){
     var cls = STATUS_CLASS[p.status] || "st-available";
     return '' +
       '<tr class="prow" onclick="openPersonModal(\''+listName+'\',\''+p.id+'\')">' +
         '<td class="name-cell">'+esc(p.name)+'</td>' +
-        '<td>'+(p.age?esc(p.age):'<span class="cell-empty">—</span>')+'</td>' +
+        '<td>'+(function(){ var a=computeAge(p.date_of_birth,p.age); return a!=null?esc(a):'<span class="cell-empty">—</span>'; })()+'</td>' +
         '<td><span class="pill '+cls+'">'+esc(p.status||"Available")+'</span></td>' +
+        '<td>'+currentMatchCell(p, listName)+'</td>' +
         '<td>'+cell(p.location)+'</td>' +
         '<td>'+cell(p.want_live)+'</td>' +
         '<td>'+cell(p.learn_plan)+'</td>' +
@@ -532,7 +634,7 @@
   }
 
   function statTiles(list, containerId){
-    var counts = {Available:0,Dating:0,"On Hold":0,Engaged:0,Married:0};
+    var counts = {Available:0,Dating:0,"On Hold":0,Engaged:0,Married:0,Archived:0};
     list.forEach(function(p){ if(counts[p.status]!==undefined) counts[p.status]++; });
     var html = '<div class="stat"><div class="n">'+list.length+'</div><div class="l">Total</div></div>';
     Object.keys(counts).forEach(function(k){
@@ -557,7 +659,7 @@
     if(filter){ list = list.filter(function(p){ return p.status===filter; }); }
     var el = $("list"+cap(listName));
     if(!list.length){
-      el.innerHTML = '<tr><td colspan="11" style="padding:40px 20px;"><div class="empty" style="border:none;padding:0;"><div class="display">No one here yet</div>Add a profile to get started, or adjust your search.</div></td></tr>';
+      el.innerHTML = '<tr><td colspan="12" style="padding:40px 20px;"><div class="empty" style="border:none;padding:0;"><div class="display">No one here yet</div>Add a profile to get started, or adjust your search.</div></td></tr>';
       return;
     }
     el.innerHTML = list.map(function(p){ return personRow(p, listName); }).join("");
@@ -567,7 +669,7 @@
     var g = document.querySelector("#genderSeg button.active").dataset.g;
     var opp = g==="boys" ? "girls" : "boys";
     $("personSelectLabel").textContent = "Choose a " + (g==="boys"?"boy":"girl");
-    var pool = state[g].filter(function(p){ return p.status!=="Married"; });
+    var pool = state[g].filter(function(p){ return p.status!=="Married" && p.status!=="Archived"; });
     var sel = $("personSelect");
     var prev = sel.value;
     sel.innerHTML = pool.map(function(p){ return '<option value="'+p.id+'">'+esc(p.name)+' ('+esc(p.status)+')</option>'; }).join("");
@@ -579,7 +681,7 @@
       $("findResults").innerHTML = '<div class="empty"><div class="display">Add some profiles first</div>Once you have people on both lists, pick one here to see ranked suggestions.</div>';
       return;
     }
-    var candidates = state[opp].filter(function(c){ return c.status!=="Engaged" && c.status!=="Married"; });
+    var candidates = state[opp].filter(function(c){ return c.status!=="Engaged" && c.status!=="Married" && c.status!=="Archived"; });
     var scored = candidates.map(function(c){
       var r = scoreMatch(person, c);
       var hist = matchHistory(g==="boys"?person.id:c.id, g==="boys"?c.id:person.id);
@@ -633,6 +735,31 @@
     $("findResults").innerHTML = html;
   }
 
+  function renderMatchRow(m){
+    var cls = STATUS_CLASS[m.status] || "st-suggested";
+    var updates = updatesFor(m.id);
+    var timeline = updates.map(function(u){
+      return '' +
+        '<div class="mu-item">' +
+          '<span class="mu-date">'+fmtDate(u.date)+'</span>' +
+          '<span class="pill '+(STATUS_CLASS[u.status]||'st-suggested')+'">'+esc(u.status)+'</span>' +
+          '<span class="mu-note">'+(u.note?esc(u.note):'')+'</span>' +
+          '<button type="button" class="mu-del" title="Remove this update" onclick="event.stopPropagation();deleteMatchUpdate(\''+u.id+'\')">✕</button>' +
+        '</div>';
+    }).join("");
+    return '' +
+      '<div class="log-row">' +
+        '<div class="log-names">'+esc(m.boy_name)+' &nbsp;&times;&nbsp; '+esc(m.girl_name)+
+          '<div class="log-meta">Suggested '+fmtDate(m.date_suggested)+' by '+esc(m.suggested_by||"—")+'</div></div>' +
+        '<span class="pill '+cls+'">'+esc(m.status)+'</span>' +
+        '<button class="btn small" onclick="openUpdateModal(\''+m.id+'\')">+ Add Update</button>' +
+        '<button class="btn small secondary" onclick="openMatchModal(\''+m.id+'\')">Edit</button>' +
+        '<button class="btn small danger" onclick="deleteMatch(\''+m.id+'\')">Delete</button>' +
+        (m.notes ? '<div class="log-notes">'+esc(m.notes)+'</div>' : '') +
+        (timeline ? '<div class="mu-list">'+timeline+'</div>' : '') +
+      '</div>';
+  }
+
   function renderLog(){
     var list = state.matches.slice();
     var search = norm($("searchLog").value);
@@ -658,24 +785,41 @@
       $("logList").innerHTML = '<div class="empty"><div class="display">No matches logged yet</div>Suggest a match from the Find a Match tab, or log one manually.</div>';
       return;
     }
-    $("logList").innerHTML = list.map(function(m){
-      var opts = MATCH_STATUSES.map(function(s){ return '<option '+(s===m.status?'selected':'')+'>'+s+'</option>'; }).join("");
-      return '' +
-        '<div class="log-row">' +
-          '<div class="log-names">'+esc(m.boy_name)+' &nbsp;&times;&nbsp; '+esc(m.girl_name)+
-            '<div class="log-meta">Suggested '+fmtDate(m.date_suggested)+' by '+esc(m.suggested_by||"—")+'</div></div>' +
-          '<select onchange="updateMatchStatus(\''+m.id+'\',this.value)">'+opts+'</select>' +
-          '<button class="btn small secondary" onclick="openMatchModal(\''+m.id+'\')">Edit</button>' +
-          '<button class="btn small danger" onclick="deleteMatch(\''+m.id+'\')">Delete</button>' +
-          (m.notes ? '<div class="log-notes">'+esc(m.notes)+'</div>' : '') +
-        '</div>';
-    }).join("");
+    list.sort(function(a,b){ return (b.updated_at||"").localeCompare(a.updated_at||""); });
+    $("logList").innerHTML = list.map(renderMatchRow).join("");
+  }
+
+  function renderDashboard(){
+    var boysAvail = state.boys.filter(function(p){ return p.status==="Available"; }).length;
+    var girlsAvail = state.girls.filter(function(p){ return p.status==="Available"; }).length;
+    var active = state.matches.filter(function(m){
+      return ["Suggested","Reached Out","First Date","Ongoing","On Hold"].indexOf(m.status)!==-1;
+    });
+    var milestones = state.matches.filter(function(m){ return m.status==="Engaged" || m.status==="Married"; });
+    active.sort(function(a,b){ return (b.updated_at||"").localeCompare(a.updated_at||""); });
+    milestones.sort(function(a,b){ return (b.updated_at||"").localeCompare(a.updated_at||""); });
+
+    $("statsDashboard").innerHTML =
+      '<div class="stat"><div class="n">'+active.length+'</div><div class="l">Active Matches</div></div>' +
+      '<div class="stat"><div class="n">'+milestones.filter(function(m){return m.status==="Engaged";}).length+'</div><div class="l">Engaged</div></div>' +
+      '<div class="stat"><div class="n">'+milestones.filter(function(m){return m.status==="Married";}).length+'</div><div class="l">Married</div></div>' +
+      '<div class="stat"><div class="n">'+boysAvail+'</div><div class="l">Boys Available</div></div>' +
+      '<div class="stat"><div class="n">'+girlsAvail+'</div><div class="l">Girls Available</div></div>';
+
+    $("dashboardActive").innerHTML = active.length
+      ? active.map(renderMatchRow).join("")
+      : '<div class="empty"><div class="display">Nothing active right now</div>Suggest a match from the Find a Match tab, or log one manually.</div>';
+
+    $("dashboardMilestones").innerHTML = milestones.length
+      ? milestones.map(renderMatchRow).join("")
+      : '<div class="empty" style="padding:24px;"><div class="display" style="font-size:15px;">None yet</div></div>';
   }
 
   function renderAll(){
     $("countBoys").textContent = state.boys.length;
     $("countGirls").textContent = state.girls.length;
     $("countLog").textContent = state.matches.length;
+    renderDashboard();
     renderList("boys");
     renderList("girls");
     renderFind();
@@ -733,6 +877,7 @@
     $("p_references").value = p ? p.character_references||"" : "";
     $("p_notes").value = p ? p.notes||"" : "";
     $("p_dob").value = p ? p.date_of_birth||"" : "";
+    syncAgeFromDob();
     $("p_height").value = p ? p.height||"" : "";
     $("p_parents").value = p ? p.parents_info||"" : "";
     $("p_siblings").value = p ? p.siblings_info||"" : "";
@@ -748,6 +893,9 @@
     $("p_resumeFile").value = "";
     $("p_resumeStatus").textContent = "";
     $("p_resumeStatus").style.color = "var(--muted)";
+    $("p_resumeText").value = "";
+    $("p_pasteStatus").textContent = "";
+    $("p_pasteStatus").style.color = "var(--muted)";
     $("p_photoFile").value = "";
     $("p_photoStatus").textContent = "";
     $("p_photoStatus").style.color = "var(--muted)";
@@ -756,6 +904,21 @@
     updateLearnPlaceLabel(listName);
     $("personOverlay").classList.add("open");
   };
+
+  function syncAgeFromDob(){
+    var d = parseDob($("p_dob").value);
+    var ageInput = $("p_age");
+    var note = $("p_ageAuto");
+    if(d){
+      ageInput.value = ageFromDob(d);
+      ageInput.disabled = true;
+      note.textContent = "(from date of birth)";
+    } else {
+      ageInput.disabled = false;
+      note.textContent = "";
+    }
+  }
+  $("p_dob").addEventListener("input", syncAgeFromDob);
 
   function updateLearnPlaceLabel(listName){
     var labels = document.querySelectorAll("#personOverlay .form-grid .field label");
@@ -807,11 +970,47 @@
     });
   };
 
+  function isResumeFile(file){
+    var name = (file.name||"").toLowerCase();
+    return name.endsWith(".pdf") || name.endsWith(".docx") ||
+      file.type === "application/pdf" ||
+      file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  }
+
+  // Shared by the file-upload flow and the paste-text flow — fills in
+  // whatever fields the AI found, without touching fields it left blank.
+  function applyExtractedFields(ex){
+    if(ex.name) $("p_name").value = ex.name;
+    if(ex.age) $("p_age").value = ex.age;
+    if(ex.location) $("p_location").value = ex.location;
+    if(ex.wantLive) $("p_wantLive").value = ex.wantLive;
+    if(ex.learnPlan) $("p_learnPlan").value = ex.learnPlan;
+    if(ex.learnPlace) $("p_learnPlace").value = ex.learnPlace;
+    if(ex.interests) $("p_interests").value = ex.interests;
+    if(ex.motherPhone) $("p_motherPhone").value = ex.motherPhone;
+    if(ex.references) $("p_references").value = ex.references;
+    if(ex.dateOfBirth) $("p_dob").value = ex.dateOfBirth;
+    syncAgeFromDob();
+    if(ex.height) $("p_height").value = ex.height;
+    if(ex.parents) $("p_parents").value = ex.parents;
+    if(ex.siblings) $("p_siblings").value = ex.siblings;
+    if(ex.shul) $("p_shul").value = ex.shul;
+    if(ex.familyReferences) $("p_familyReferences").value = ex.familyReferences;
+    if(ex.notes){
+      var existingNotes = $("p_notes").value.trim();
+      $("p_notes").value = existingNotes ? existingNotes + "\n\n" + ex.notes : ex.notes;
+    }
+  }
+
   window.uploadResume = function(){
     var input = $("p_resumeFile");
     var file = input.files && input.files[0];
-    if(!file){ toast("Choose a PDF first"); return; }
-    if(file.type !== "application/pdf"){ toast("Please choose a PDF file"); return; }
+    if(!file){ toast("Choose a PDF or Word file first"); return; }
+    if((file.name||"").toLowerCase().endsWith(".doc")){
+      toast("That's an older .doc file — please re-save it as .docx or a PDF first");
+      return;
+    }
+    if(!isResumeFile(file)){ toast("Please choose a PDF or Word (.docx) file"); return; }
     var statusEl = $("p_resumeStatus");
     statusEl.style.color = "var(--muted)";
     statusEl.textContent = "Uploading & reading with AI… this can take a few seconds";
@@ -819,33 +1018,14 @@
     fd.append("file", file);
     fd.append("table", editing.list || "boys");
     fetch("/api/resume", { method:"POST", body: fd }).then(function(r){
-      if(!r.ok) throw new Error("upload failed");
+      if(!r.ok) return r.text().then(function(msg){ throw new Error(msg || "upload failed"); });
       return r.json();
     }).then(function(res){
       editing.resumeFileKey = res.key;
       editing.resumeFileName = res.name;
       renderResumeCurrent();
       if(res.extracted){
-        var ex = res.extracted;
-        if(ex.name) $("p_name").value = ex.name;
-        if(ex.age) $("p_age").value = ex.age;
-        if(ex.location) $("p_location").value = ex.location;
-        if(ex.wantLive) $("p_wantLive").value = ex.wantLive;
-        if(ex.learnPlan) $("p_learnPlan").value = ex.learnPlan;
-        if(ex.learnPlace) $("p_learnPlace").value = ex.learnPlace;
-        if(ex.interests) $("p_interests").value = ex.interests;
-        if(ex.motherPhone) $("p_motherPhone").value = ex.motherPhone;
-        if(ex.references) $("p_references").value = ex.references;
-        if(ex.dateOfBirth) $("p_dob").value = ex.dateOfBirth;
-        if(ex.height) $("p_height").value = ex.height;
-        if(ex.parents) $("p_parents").value = ex.parents;
-        if(ex.siblings) $("p_siblings").value = ex.siblings;
-        if(ex.shul) $("p_shul").value = ex.shul;
-        if(ex.familyReferences) $("p_familyReferences").value = ex.familyReferences;
-        if(ex.notes){
-          var existingNotes = $("p_notes").value.trim();
-          $("p_notes").value = existingNotes ? existingNotes + "\n\n" + ex.notes : ex.notes;
-        }
+        applyExtractedFields(res.extracted);
         statusEl.style.color = "var(--gold)";
         statusEl.textContent = "Filled in from the resume — check every field below before saving.";
       } else if(res.extractError){
@@ -855,9 +1035,37 @@
         statusEl.style.color = "var(--muted)";
         statusEl.textContent = "File saved.";
       }
-    }).catch(function(){
+    }).catch(function(err){
       statusEl.style.color = "var(--st-declined)";
-      statusEl.textContent = "Upload failed — try again.";
+      statusEl.textContent = (err && err.message) ? err.message : "Upload failed — try again.";
+    });
+  };
+
+  window.extractFromPastedText = function(){
+    var text = $("p_resumeText").value.trim();
+    if(text.length < 20){ toast("Paste in a bit more text first"); return; }
+    var statusEl = $("p_pasteStatus");
+    statusEl.style.color = "var(--muted)";
+    statusEl.textContent = "Reading with AI… this can take a few seconds";
+    fetch("/api/resume-text", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: text, table: editing.list || "boys" })
+    }).then(function(r){
+      if(!r.ok) return r.text().then(function(msg){ throw new Error(msg || "extraction failed"); });
+      return r.json();
+    }).then(function(res){
+      if(res.extracted){
+        applyExtractedFields(res.extracted);
+        statusEl.style.color = "var(--gold)";
+        statusEl.textContent = "Filled in from the pasted text — check every field below before saving.";
+      } else {
+        statusEl.style.color = "var(--st-declined)";
+        statusEl.textContent = "Couldn't find anything usable in that text.";
+      }
+    }).catch(function(err){
+      statusEl.style.color = "var(--st-declined)";
+      statusEl.textContent = (err && err.message) ? err.message : "Couldn't read that — try again.";
     });
   };
   window.closePersonModal = function(){ $("personOverlay").classList.remove("open"); };
@@ -866,7 +1074,7 @@
     if(!name){ toast("Name is required"); return; }
     var data = {
       name: name,
-      age: $("p_age").value ? Number($("p_age").value) : null,
+      age: computeAge($("p_dob").value, $("p_age").value),
       status: $("p_status").value,
       location: $("p_location").value.trim(),
       wantLive: $("p_wantLive").value.trim(),
@@ -912,11 +1120,13 @@
       $("m_date").value = m.date_suggested || todayISO();
       $("m_suggestedBy").value = m.suggested_by || "";
       $("m_notes").value = m.notes || "";
+      $("m_statusField").style.display = "none";
     } else {
       $("m_date").value = todayISO();
       $("m_suggestedBy").value = getUserName();
       $("m_notes").value = "";
       statusSel.value = "Suggested";
+      $("m_statusField").style.display = "";
     }
     $("matchOverlay").classList.add("open");
   };
@@ -936,12 +1146,27 @@
     op.then(function(){ toast(editing.match ? "Saved" : "Match logged"); closeMatchModal(); refreshAll(); })
       .catch(function(){ toast("Something went wrong — try again"); });
   };
-  window.updateMatchStatus = function(id, status){
-    var m = state.matches.find(function(x){return x.id===id;});
-    if(!m) return;
-    matchApi.update(id, { status: status, dateSuggested: m.date_suggested, suggestedBy: m.suggested_by, notes: m.notes })
-      .then(function(){ toast("Status updated"); refreshAll(); })
-      .catch(function(){ toast("Couldn't update — try again"); });
+  window.openUpdateModal = function(matchId){
+    editing.updateMatchId = matchId;
+    var m = state.matches.find(function(x){return x.id===matchId;});
+    var sel = $("u_status");
+    sel.innerHTML = MATCH_STATUSES.map(function(s){ return '<option>'+s+'</option>'; }).join("");
+    sel.value = m ? m.status : "Suggested";
+    $("u_date").value = todayISO();
+    $("u_note").value = "";
+    $("updateOverlay").classList.add("open");
+  };
+  window.closeUpdateModal = function(){ $("updateOverlay").classList.remove("open"); editing.updateMatchId = null; };
+  window.saveMatchUpdate = function(){
+    if(!editing.updateMatchId) return;
+    var data = { status: $("u_status").value, date: $("u_date").value || todayISO(), note: $("u_note").value.trim() };
+    matchUpdateApi.add(editing.updateMatchId, data)
+      .then(function(){ toast("Update added"); closeUpdateModal(); refreshAll(); })
+      .catch(function(){ toast("Couldn't add that update — try again"); });
+  };
+  window.deleteMatchUpdate = function(id){
+    matchUpdateApi.remove(id).then(function(){ toast("Update removed"); refreshAll(); })
+      .catch(function(){ toast("Couldn't remove — try again"); });
   };
   window.deleteMatch = function(id){
     matchApi.remove(id).then(function(){ toast("Removed from log"); refreshAll(); })
@@ -955,7 +1180,7 @@
       .catch(function(){ toast("Couldn't log that suggestion — try again"); });
   };
 
-  [ "personOverlay","matchOverlay" ].forEach(function(id){
+  [ "personOverlay","matchOverlay","updateOverlay" ].forEach(function(id){
     $(id).addEventListener("click", function(e){ if(e.target.id===id) e.currentTarget.classList.remove("open"); });
   });
 
