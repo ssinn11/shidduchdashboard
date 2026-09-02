@@ -204,6 +204,19 @@ every push — no separate "publish" step.
   **Edit** button on a match is still there for fixing the boy/girl, who
   suggested it, or the original date/notes — status itself is only changed
   through Add Update once a match exists, so the timeline stays accurate.
+- **+ Add a Boy**, **+ Add a Girl**, and **Bulk Upload Resumes** now live in a
+  bar just under the tabs, not inside the Boys/Girls panels — they stay
+  visible no matter which tab you're on or how far you've scrolled down a
+  long table.
+- **Bulk Upload Resumes** (in that same bar) lets you add a whole batch of
+  people at once instead of one at a time. Choose Boys or Girls, select
+  several resume files (PDF or Word), and click Start Upload — each file is
+  read by AI and saved as its own new profile automatically, the same way a
+  single upload works. If AI can't find a name in a resume, the file name is
+  used instead so nothing is lost; either way, **open and check every
+  profile it creates afterward** — it's a fast start, not a substitute for
+  reviewing the details. Old .doc files and non-resume files are skipped
+  with a note rather than stopping the whole batch.
 - To **archive** someone instead of deleting them, set their Status to
   **Archived** (in the same dropdown as Available/Dating/etc., on their
   profile form or in the table's status filter). Archived profiles stay in

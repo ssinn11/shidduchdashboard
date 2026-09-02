@@ -66,6 +66,8 @@
   .tab{padding:10px 16px;border:none;background:none;color:var(--muted);font-size:14.5px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s;}
   .tab:hover{color:var(--ink);}
   .tab.active{color:var(--primary);border-bottom-color:var(--primary);}
+  .quick-actions{position:sticky;top:0;z-index:20;display:flex;gap:10px;justify-content:flex-end;background:var(--bg);padding:10px 0;margin:-10px 0 16px;border-bottom:1px solid var(--border);}
+  @media (max-width:640px){ .quick-actions{justify-content:stretch;} .quick-actions .btn{flex:1;} }
   .badge-count{display:inline-block;margin-left:6px;background:var(--surface-2);color:var(--ink-soft);border-radius:99px;padding:1px 7px;font-size:11.5px;font-weight:700;}
   .panel{display:none;}
   .panel.active{display:block;animation:fade .18s ease;}
@@ -190,6 +192,12 @@
     <button class="tab" data-tab="log">Match Log <span class="badge-count" id="countLog">0</span></button>
   </div>
 
+  <div class="quick-actions">
+    <button class="btn secondary" onclick="openBulkModal()">⇪ Bulk Upload Resumes</button>
+    <button class="btn" onclick="openPersonModal('boys')">+ Add a Boy</button>
+    <button class="btn" onclick="openPersonModal('girls')">+ Add a Girl</button>
+  </div>
+
   <div class="panel active" id="panel-dashboard">
     <div class="stats" id="statsDashboard"></div>
     <div class="section-label" style="margin-top:0;">Active Pipeline</div>
@@ -206,8 +214,6 @@
         <option value="">All statuses</option>
         <option>Available</option><option>Dating</option><option>On Hold</option><option>Engaged</option><option>Married</option><option>Archived</option>
       </select>
-      <div class="spacer"></div>
-      <button class="btn" onclick="openPersonModal('boys')">+ Add a Boy</button>
     </div>
     <div class="table-wrap">
       <table class="ptable">
@@ -228,8 +234,6 @@
         <option value="">All statuses</option>
         <option>Available</option><option>Dating</option><option>On Hold</option><option>Engaged</option><option>Married</option><option>Archived</option>
       </select>
-      <div class="spacer"></div>
-      <button class="btn" onclick="openPersonModal('girls')">+ Add a Girl</button>
     </div>
     <div class="table-wrap">
       <table class="ptable">
@@ -362,6 +366,33 @@
     <div class="modal-actions">
       <button class="btn secondary" onclick="closeUpdateModal()">Cancel</button>
       <button class="btn" onclick="saveMatchUpdate()">Save Update</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="bulkOverlay">
+  <div class="modal">
+    <h2>Bulk Upload Resumes</h2>
+    <p style="margin:-6px 0 14px;color:var(--muted);font-size:13px;">
+      Select several resumes at once (PDF or Word) — each one is read by AI and saved as
+      its own new profile automatically. This is a fast start, not a substitute for
+      reviewing each profile afterward — open every one it creates and check the details.
+    </p>
+    <div class="field" style="margin-bottom:14px;">
+      <label>Add these as</label>
+      <div class="seg" id="bulkGenderSeg">
+        <button type="button" class="active" data-g="boys">Boys</button>
+        <button type="button" data-g="girls">Girls</button>
+      </div>
+    </div>
+    <div class="field full">
+      <label>Resume Files (PDF or Word — select multiple)</label>
+      <input type="file" id="bulk_files" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple />
+    </div>
+    <div class="mu-list" id="bulk_progress"></div>
+    <div class="modal-actions">
+      <button class="btn secondary" onclick="closeBulkModal()">Close</button>
+      <button class="btn" id="bulk_startBtn" onclick="startBulkUpload()">Start Upload</button>
     </div>
   </div>
 </div>
@@ -1107,6 +1138,141 @@
     }).catch(function(){ toast("Couldn't delete — try again"); });
   };
 
+  // ---------- bulk resume upload ----------
+  // Lets the matchmaker drop in a whole batch of resumes at once instead of
+  // adding people one at a time. Each file goes through the same upload +
+  // AI-extraction endpoint as the single-resume flow, then a brand-new
+  // profile is created straight from whatever the AI found (falling back to
+  // the filename for the name if extraction couldn't find one) — nothing
+  // here is any different from what a human filling in the form and
+  // clicking Save would produce, just done for a whole folder of files back
+  // to back. Files are processed one at a time (not in parallel) so the
+  // progress list is easy to follow and so a batch of many files doesn't
+  // hammer Workers AI all at once.
+  var bulkState = { table: "boys", running: false };
+
+  function stripExt(filename){
+    return (filename || "").replace(/\.[^./]+$/, "");
+  }
+
+  $("bulkGenderSeg").addEventListener("click", function(e){
+    var btn = e.target.closest("button[data-g]");
+    if(!btn || bulkState.running) return;
+    bulkState.table = btn.dataset.g;
+    $("bulkGenderSeg").querySelectorAll("button").forEach(function(b){ b.classList.toggle("active", b===btn); });
+  });
+
+  window.openBulkModal = function(){
+    bulkState.table = "boys";
+    bulkState.running = false;
+    $("bulkGenderSeg").querySelectorAll("button").forEach(function(b){ b.classList.toggle("active", b.dataset.g==="boys"); });
+    $("bulk_files").value = "";
+    $("bulk_progress").innerHTML = "";
+    $("bulk_startBtn").disabled = false;
+    $("bulk_startBtn").textContent = "Start Upload";
+    $("bulkOverlay").classList.add("open");
+  };
+
+  window.closeBulkModal = function(){
+    if(bulkState.running && !confirm("Uploads are still running — close anyway? Files already processed will be kept.")){
+      return;
+    }
+    $("bulkOverlay").classList.remove("open");
+    refreshAll();
+  };
+
+  function bulkSetStatus(i, text, kind){
+    var el = $("bulkrow"+i+"_status");
+    if(!el) return;
+    el.textContent = text;
+    el.style.color = kind==="error" ? "var(--st-declined)" : kind==="ok" ? "var(--gold)" : "var(--muted)";
+  }
+
+  window.startBulkUpload = function(){
+    if(bulkState.running) return;
+    var input = $("bulk_files");
+    var files = Array.prototype.slice.call(input.files || []);
+    if(!files.length){ toast("Choose one or more resume files first"); return; }
+    var table = bulkState.table;
+
+    bulkState.running = true;
+    $("bulk_startBtn").disabled = true;
+    $("bulk_startBtn").textContent = "Uploading…";
+    var listEl = $("bulk_progress");
+    listEl.innerHTML = files.map(function(f, i){
+      return '<div class="mu-item"><span class="mu-date">'+esc(f.name)+'</span>' +
+        '<span class="mu-note" id="bulkrow'+i+'_status">Waiting…</span></div>';
+    }).join("");
+
+    var chain = Promise.resolve();
+    files.forEach(function(file, i){
+      chain = chain.then(function(){
+        if((file.name||"").toLowerCase().endsWith(".doc")){
+          bulkSetStatus(i, "Skipped — old .doc format isn't supported; re-save as .docx or PDF", "error");
+          return;
+        }
+        if(!isResumeFile(file)){
+          bulkSetStatus(i, "Skipped — not a PDF or Word (.docx) file", "error");
+          return;
+        }
+        bulkSetStatus(i, "Uploading & reading with AI…", "");
+        var fd = new FormData();
+        fd.append("file", file);
+        fd.append("table", table);
+        return fetch("/api/resume", { method:"POST", body: fd }).then(function(r){
+          if(!r.ok) return r.text().then(function(msg){ throw new Error(msg || "upload failed"); });
+          return r.json();
+        }).then(function(res){
+          var ex = res.extracted || {};
+          var name = ex.name || stripExt(file.name) || "Unnamed";
+          var data = {
+            name: name,
+            age: computeAge(ex.dateOfBirth || "", ex.age || ""),
+            status: "Available",
+            location: ex.location || "",
+            wantLive: ex.wantLive || "",
+            learnPlan: ex.learnPlan || "",
+            learnPlace: ex.learnPlace || "",
+            interests: ex.interests || "",
+            resumeLink: "",
+            resumeFileKey: res.key,
+            resumeFileName: res.name,
+            photoFileKey: "",
+            photoFileName: "",
+            motherPhone: ex.motherPhone || "",
+            references: ex.references || "",
+            notes: ex.notes || "",
+            dateOfBirth: ex.dateOfBirth || "",
+            height: ex.height || "",
+            parents: ex.parents || "",
+            siblings: ex.siblings || "",
+            shul: ex.shul || "",
+            familyReferences: ex.familyReferences || ""
+          };
+          return api.add(table, data).then(function(){
+            if(res.extracted && ex.name){
+              bulkSetStatus(i, 'Added as "'+ex.name+'"', "ok");
+            } else if(res.extracted){
+              bulkSetStatus(i, 'Added as "'+name+'" — AI found no name, please rename', "ok");
+            } else {
+              bulkSetStatus(i, 'Added as "'+name+'" — AI extraction failed, fill in fields by hand', "ok");
+            }
+          });
+        }).catch(function(err){
+          bulkSetStatus(i, (err && err.message) ? err.message : "Failed — try uploading this one individually", "error");
+        });
+      });
+    });
+
+    chain.then(function(){
+      bulkState.running = false;
+      $("bulk_startBtn").disabled = false;
+      $("bulk_startBtn").textContent = "Start Upload";
+      refreshAll();
+      toast("Bulk upload finished");
+    });
+  };
+
   // ---------- match modal ----------
   window.openMatchModal = function(id){
     editing.match = id || null;
@@ -1183,6 +1349,7 @@
   [ "personOverlay","matchOverlay","updateOverlay" ].forEach(function(id){
     $(id).addEventListener("click", function(e){ if(e.target.id===id) e.currentTarget.classList.remove("open"); });
   });
+  $("bulkOverlay").addEventListener("click", function(e){ if(e.target.id==="bulkOverlay") closeBulkModal(); });
 
   // "logging as": prefer the Cloudflare Access-verified email, but let it be overridden
   try{
