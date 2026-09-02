@@ -442,9 +442,14 @@ async function runResumeExtractionAI(env, text, table) {
           "section headings, and includes different combinations of information. Do your best to map information to " +
           "the right field even when it's labeled differently than you'd expect (for example a 'DOB' or 'Born' line is " +
           "dateOfBirth; a 'Family' or 'Background' section is parents/siblings). " +
-          "Reply using only information actually present in the text — never invent or guess. Use an empty string for " +
-          "anything not present. If you notice clearly relevant information that doesn't fit any other field, put a " +
-          "short summary of it in the 'notes' field instead of dropping it.",
+          "Reply using only information actually present in the text — never invent or guess. If a field is not " +
+          "present in the text, its value MUST be a literal empty string \"\" — nothing else. Do NOT write phrases " +
+          "like 'not specified', 'not mentioned', 'not stated', 'not given', 'not provided', 'no information', " +
+          "'no mention of...', 'unknown', 'n/a', 'none', or any other placeholder or explanatory text into a field " +
+          "— those all count as inventing content and are wrong. An empty string is the ONLY correct way to show " +
+          "that something wasn't in the text. If you notice clearly relevant information that doesn't fit any other " +
+          "field, put a short summary of it in the 'notes' field instead of dropping it — but never use 'notes' to " +
+          "explain that another field is empty.",
       },
       {
         role: "user",
@@ -475,23 +480,56 @@ async function runResumeExtractionAI(env, text, table) {
   if (!parsed || typeof parsed !== "object") throw new Error("AI returned an unexpected format");
 
   return {
-    name: parsed.name || "",
+    name: cleanExtractedField(parsed.name),
     age: parsed.age ? Number(parsed.age) || null : null,
-    dateOfBirth: parsed.dateOfBirth || "",
-    height: parsed.height || "",
-    location: parsed.location || "",
-    wantLive: parsed.wantLive || "",
-    learnPlan: parsed.learnPlan || "",
-    learnPlace: parsed.learnPlace || "",
-    interests: parsed.interests || "",
-    motherPhone: parsed.motherPhone || "",
-    parents: parsed.parents || "",
-    siblings: parsed.siblings || "",
-    shul: parsed.shul || "",
-    familyReferences: parsed.familyReferences || "",
-    references: parsed.references || "",
-    notes: parsed.notes || "",
+    dateOfBirth: cleanExtractedField(parsed.dateOfBirth),
+    height: cleanExtractedField(parsed.height),
+    location: cleanExtractedField(parsed.location),
+    wantLive: cleanExtractedField(parsed.wantLive),
+    learnPlan: cleanExtractedField(parsed.learnPlan),
+    learnPlace: cleanExtractedField(parsed.learnPlace),
+    interests: cleanExtractedField(parsed.interests),
+    motherPhone: cleanExtractedField(parsed.motherPhone),
+    parents: cleanExtractedField(parsed.parents),
+    siblings: cleanExtractedField(parsed.siblings),
+    shul: cleanExtractedField(parsed.shul),
+    familyReferences: cleanExtractedField(parsed.familyReferences),
+    references: cleanExtractedField(parsed.references),
+    notes: cleanExtractedField(parsed.notes),
   };
+}
+
+// Safety net for when the model ignores the "use an empty string" instruction
+// and instead writes filler/meta-commentary into a field to explain that the
+// information wasn't in the text (e.g. "Not specified", "No mention of where
+// they want to live", "N/A"). Anything matching these patterns is treated as
+// equivalent to the information being absent, and blanked out — regardless of
+// how the model phrased it.
+const EMPTY_FIELD_PATTERNS = [
+  /^not\s+(specified|mentioned|given|stated|provided|listed|available|applicable|indicated|included|found|clear|known)\b/i,
+  /^no\s+(specific\s+)?(information|info|mention|indication|details?)\b/i,
+  /^n\/?a$/i,
+  /^none\b/i,
+  /^unknown$/i,
+  /^unspecified$/i,
+  /^unavailable$/i,
+  /^unclear$/i,
+  /^does(n't|\s+not)\s+(say|mention|specify|state|indicate|include|provide)\b/i,
+  /^(is\s+)?not\s+(mentioned|stated|specified|given|provided|indicated|included|available)\s+in\s+the\s+(text|resume)/i,
+  /^no\s+\w+\s+(was\s+)?(mentioned|stated|specified|given|provided|indicated|included)/i,
+  // Catches phrasing like "no specific location mentioned", "no city given" —
+  // "no ... <mentioned/given/etc>" with a few words in between rather than
+  // right after "no".
+  /^no\s+.{0,40}\b(mentioned|specified|stated|given|indicated|listed|provided)\b/i,
+];
+
+function cleanExtractedField(value) {
+  const s = (value || "").toString().trim();
+  if (!s) return "";
+  for (const pattern of EMPTY_FIELD_PATTERNS) {
+    if (pattern.test(s)) return "";
+  }
+  return s;
 }
 
 // Workers AI's JSON mode is best-effort, not guaranteed — some models wrap
